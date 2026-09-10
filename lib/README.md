@@ -1,60 +1,29 @@
 # Biblioteca de Hardware del Robot
 
-La biblioteca `librobot` proporciona una abstracción para el acceso al
+La biblioteca `librobot` proporciona una abstraccion para el acceso al
 hardware del robot aspiradora.
 
 El servidor web debe utilizar esta biblioteca para controlar los recursos
-físicos del sistema, evitando acceder directamente a GPIO, PWM u otros
-mecanismos específicos del hardware.
+fisicos del sistema, evitando acceder directamente a GPIO, PWM u otros
+mecanismos especificos del hardware.
 
-La plataforma objetivo del proyecto es una Raspberry Pi 4 Model B.
+La plataforma objetivo es una Raspberry Pi 4 Model B.
 
-## Módulos
+## Modulos
 
 La biblioteca encapsula:
 
 - Control de motores mediante PWM.
 - Lectura de sensores de proximidad.
 - Control de LEDs mediante GPIO.
-- Reproducción de audio.
-
-## Estructura
-
-```text
-lib/
-├── CMakeLists.txt
-├── include/
-│   └── robot_hw.h
-├── src/
-│   ├── robot_hw.c
-│   ├── motors.c
-│   ├── motor_backend.h
-│   ├── sensors.c
-│   ├── sensor_backend.h
-│   ├── leds.c
-│   └── audio.c
-└── README.md
-```
-
-## API pública
-
-La API pública de la biblioteca se encuentra definida en:
-
-```text
-include/robot_hw.h
-```
-
-Las aplicaciones externas deben utilizar las funciones declaradas en este
-archivo para interactuar con el hardware del robot.
-
----
+- Reproduccion de audio.
 
 ## Motores
 
 Las velocidades utilizan un rango de `-100` a `100`.
 
 - Valores positivos: movimiento hacia adelante.
-- Valores negativos: movimiento hacia atrás.
+- Valores negativos: movimiento hacia atras.
 - Valor `0`: motor detenido.
 
 Ejemplo:
@@ -63,26 +32,13 @@ Ejemplo:
 robot_set_motor_speeds(70, 70);
 ```
 
-También se dispone de las funciones:
-
-```c
-robot_move_forward(50);
-robot_move_backward(50);
-robot_turn_left(50);
-robot_turn_right(50);
-robot_stop();
-```
-
-La API y la lógica de control diferencial están definidas. La integración
-final con PWM y el controlador físico de los motores se realizará una vez
-se determine el hardware definitivo del robot.
-
----
+La logica de control diferencial se encuentra definida. La integracion
+fisica con PWM y el controlador de motores queda pendiente hasta definir
+el hardware definitivo.
 
 ## Sensores
 
-La biblioteca proporciona una interfaz para obtener las distancias de los
-sensores de proximidad:
+La biblioteca proporciona las siguientes funciones publicas:
 
 ```c
 robot_get_front_distance();
@@ -90,72 +46,54 @@ robot_get_left_distance();
 robot_get_right_distance();
 ```
 
-Las distancias se expresan en centímetros.
-
-La integración física queda pendiente hasta seleccionar los sensores
-definitivos y establecer sus conexiones con la Raspberry Pi.
-
----
+Las distancias se expresan en centimetros. La integracion fisica queda
+pendiente hasta seleccionar los sensores definitivos.
 
 ## LEDs
 
 El sistema utiliza cuatro LEDs indicadores:
 
 - `ROBOT_LED_POWER`: sistema encendido.
-- `ROBOT_LED_AUTONOMOUS`: modo autónomo activo.
+- `ROBOT_LED_AUTONOMOUS`: modo autonomo activo.
 - `ROBOT_LED_MANUAL`: modo manual activo.
-- `ROBOT_LED_OBSTACLE`: obstáculo detectado.
+- `ROBOT_LED_OBSTACLE`: obstaculo detectado.
 
-Los LEDs son controlados utilizando GPIO de la Raspberry Pi.
-
-La API pública utiliza:
+La API publica utiliza:
 
 ```c
 robot_led_set(RobotLed led, int state);
 ```
 
-donde:
+`state = 1` enciende el LED y `state = 0` lo apaga.
 
-- `state = 1`: enciende el LED.
-- `state = 0`: apaga el LED.
+La implementacion utiliza la interfaz GPIO character device de Linux por
+medio de `libgpiod`. Al ejecutar `robot_init()` se solicitan las lineas GPIO
+y se enciende el LED de sistema. `robot_cleanup()` apaga los LEDs y libera
+los recursos GPIO.
 
-Ejemplo:
+Asignacion inicial de GPIO para Raspberry Pi 4, usando numeracion BCM:
 
-```c
-robot_led_set(ROBOT_LED_AUTONOMOUS, 1);
-```
-
-La implementación contempla la inicialización, control y liberación de los
-GPIO utilizados por los LEDs.
-
-Para evitar números de GPIO distribuidos directamente en el código, la
-configuración del hardware se mantiene separada de la lógica de control.
-
-La asignación inicial propuesta utiliza numeración BCM:
-
-| Indicador | GPIO BCM | Pin físico |
+| Indicador | GPIO BCM | Pin fisico |
 | --- | ---: | ---: |
 | Sistema encendido | GPIO17 | 11 |
-| Modo autónomo | GPIO27 | 13 |
+| Modo autonomo | GPIO27 | 13 |
 | Modo manual | GPIO22 | 15 |
-| Obstáculo | GPIO23 | 16 |
+| Obstaculo | GPIO23 | 16 |
 
-Esta distribución podrá modificarse durante la integración final del
-hardware en caso de existir conflictos con motores o sensores.
-
-Cada LED debe conectarse utilizando una resistencia limitadora de corriente.
-
-Ejemplo de conexión:
+Cada LED debe conectarse con una resistencia limitadora de corriente. Una
+resistencia de aproximadamente 330 ohmios es adecuada para las pruebas del
+prototipo.
 
 ```text
-GPIO ---- Resistencia ---- LED ---- GND
+GPIO ---- 330 ohm ---- LED ---- GND
 ```
 
----
+La asignacion puede modificarse posteriormente en `src/hardware_config.h`
+si algun GPIO entra en conflicto con motores o sensores.
 
 ## Audio
 
-La API proporciona las siguientes operaciones:
+La API proporciona:
 
 ```c
 robot_audio_play("song.mp3");
@@ -166,39 +104,16 @@ robot_audio_set_volume(75);
 
 El volumen utiliza un rango de `0` a `100`.
 
-La implementación física y reproducción definitiva de audio será incorporada
-posteriormente.
+## Sistema de construccion
 
----
-
-## Códigos de retorno
-
-La biblioteca define los siguientes códigos de retorno:
-
-```c
-ROBOT_OK
-ROBOT_ERROR
-ROBOT_INVALID_ARGUMENT
-ROBOT_NOT_INITIALIZED
-```
-
-Estos permiten indicar el resultado de las operaciones realizadas sobre el
-hardware.
-
----
-
-# Sistema de construcción
-
-La biblioteca utiliza CMake como sistema de construcción.
+La biblioteca utiliza CMake como sistema de construccion.
 
 Se requiere:
 
 - CMake 3.16 o superior.
 - Compilador compatible con C11.
-- GNU Make u otro generador soportado por CMake.
-- `libgpiod` para el acceso a GPIO en la implementación de hardware.
-
-## Compilación
+- `pkg-config`.
+- `libgpiod` con sus archivos de desarrollo.
 
 Desde el directorio `lib`:
 
@@ -209,67 +124,14 @@ cmake ..
 cmake --build .
 ```
 
-CMake compilará los archivos fuente y generará la biblioteca dinámica:
-
-```text
-librobot.so
-```
-
-Dependiendo del sistema también se pueden generar enlaces simbólicos
-similares a:
-
-```text
-librobot.so
-librobot.so.1
-librobot.so.1.0.0
-```
-
-El directorio `build/` y los archivos compilados no deben almacenarse en
-el repositorio Git.
-
----
-
-## Compilación cruzada
-
-El proyecto CMake no define directamente un compilador ARM específico.
-
-Esto permite utilizar el mismo código con el toolchain proporcionado
-posteriormente por Yocto para realizar la compilación cruzada destinada a
-la Raspberry Pi 4 Model B.
-
-La configuración específica del compilador, arquitectura y sysroot será
-proporcionada por el entorno de compilación cruzada.
-
----
+CMake genera la biblioteca dinamica `librobot.so`.
 
 ## Estado actual
 
-### Biblioteca y CMake
-
-- API pública definida.
-- Biblioteca dinámica configurada mediante CMake.
-- Estructura modular para motores, sensores, LEDs y audio.
-
-### Motores
-
-- API de movimiento definida.
-- Control diferencial definido.
-- Integración física con PWM y driver de motores pendiente.
-
-### Sensores
-
-- API de sensores definida.
-- Interfaces para sensor frontal, izquierdo y derecho definidas.
-- Integración con sensores físicos pendiente.
-
-### LEDs
-
-- API para los cuatro indicadores definida.
-- Validación de identificador de LED y estado implementada.
-- Diseño de control GPIO definido para Raspberry Pi 4.
-- Integración y prueba física con LEDs pendiente.
-
-### Audio
-
-- API de reproducción definida.
-- Implementación definitiva pendiente.
+- API publica de hardware definida.
+- Proyecto CMake definido para generar `librobot.so`.
+- Logica de control diferencial de motores definida.
+- Interfaz de lectura de sensores definida.
+- Control real de los cuatro LEDs implementado mediante `libgpiod`.
+- Integracion fisica de motores y sensores pendiente.
+- Implementacion definitiva de audio pendiente.
