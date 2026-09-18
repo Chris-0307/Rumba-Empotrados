@@ -13,8 +13,14 @@ pkg_check_modules(GPIOD REQUIRED IMPORTED_TARGET "libgpiod>=2.0")
 
 add_library(robot SHARED
     src/robot_hw.c
+
     src/motors.c
+    src/motor_backend.c
+
     src/sensors.c
+    src/sensor_backend.c
+    src/adc.c
+
     src/leds.c
     src/audio.c
 )
@@ -27,6 +33,7 @@ target_include_directories(robot
 target_link_libraries(robot
     PRIVATE
         PkgConfig::GPIOD
+        m
 )
 
 set_target_properties(robot PROPERTIES

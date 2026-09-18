@@ -67,6 +67,8 @@ int robot_stop(void);
  * =========================================================
  */
 
+#define ROBOT_SENSOR_ERROR (-1.0f)
+
 float robot_get_front_distance(void);
 
 float robot_get_left_distance(void);
