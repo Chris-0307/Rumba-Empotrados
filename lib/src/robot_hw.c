@@ -2,6 +2,7 @@
 #include "motor_backend.h"
 #include "sensor_backend.h"
 #include "leds.h"
+#include "audio.h"
 
 
 int robot_init(void)
@@ -53,6 +54,19 @@ int robot_init(void)
     }
 
 
+    result = robot_audio_init();
+
+    if (result != ROBOT_OK)
+    {
+        robot_led_set(ROBOT_LED_POWER, 0);
+        robot_led_cleanup();
+        sensor_backend_cleanup();
+        motor_backend_cleanup();
+
+        return result;
+    }
+
+
     return ROBOT_OK;
 }
 
@@ -60,6 +74,9 @@ int robot_init(void)
 void robot_cleanup(void)
 {
     robot_stop();
+
+    robot_audio_stop();
+    robot_audio_cleanup();
 
     robot_led_set(
         ROBOT_LED_POWER,

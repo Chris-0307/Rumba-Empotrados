@@ -57,4 +57,13 @@
 #define SHARP_MIN_DISTANCE_CM 10.0f
 #define SHARP_MAX_DISTANCE_CM 80.0f
 
+/* =========================
+ * Audio
+ * =========================
+ * mpg123 se ejecuta en modo remoto para que la reproduccion ocurra en
+ * un proceso independiente del control del robot.
+ */
+#define AUDIO_PLAYER_PATH "/usr/bin/mpg123"
+#define AUDIO_DEFAULT_VOLUME 75
+
 #endif
