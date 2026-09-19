@@ -16,3 +16,9 @@ target_link_libraries(
     reactive_coverage
     obstacle_avoidance
 )
+
+add_library(
+    route_map
+    STATIC
+    route_map.c
+)

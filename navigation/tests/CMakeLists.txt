@@ -20,3 +20,25 @@ target_link_libraries(
     reactive_coverage
     obstacle_avoidance
 )
+
+add_executable(
+    test_route_map
+    test_route_map.c
+)
+
+target_link_libraries(
+    test_route_map
+    route_map
+)
+
+add_executable(
+    test_navigation_map
+    test_navigation_map.c
+)
+
+target_link_libraries(
+    test_navigation_map
+    reactive_coverage
+    route_map
+    obstacle_avoidance
+)
