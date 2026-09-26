@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#111827">
+  <title>RumBa Control</title>
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <main class="app-shell">
+    <section id="loginView" class="login-view">
+      <form id="loginForm" class="card login-card" autocomplete="on">
+        <h1>RumBa</h1>
+        <p class="muted">Control del robot aspiradora</p>
+
+        <label for="username">Usuario</label>
+        <input id="username" name="username" type="text" autocomplete="username" required>
+
+        <label for="password">Contraseña</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required>
+
+        <button class="primary full" type="submit">Iniciar sesión</button>
+        <p id="loginError" class="error" role="alert" hidden></p>
+      </form>
+    </section>
+
+    <section id="dashboardView" class="dashboard" hidden>
+      <header class="topbar">
+        <div>
+          <h1>RumBa Control</h1>
+          <p id="connectionText" class="muted">Conectando…</p>
+        </div>
+        <div class="topbar-actions">
+          <span id="connectionDot" class="status-dot offline" aria-hidden="true"></span>
+          <button id="logoutButton" class="secondary compact" type="button">Salir</button>
+        </div>
+      </header>
+
+      <section class="card">
+        <div class="section-heading">
+          <div>
+            <h2>Modo de operación</h2>
+            <p class="muted">Cambiá entre navegación autónoma y control manual.</p>
+          </div>
+          <span id="modeBadge" class="badge">--</span>
+        </div>
+        <div class="segmented" role="group" aria-label="Modo de operación">
+          <button id="autonomousModeButton" type="button">Autónomo</button>
+          <button id="manualModeButton" type="button">Manual</button>
+        </div>
+      </section>
+
+      <section class="card" id="manualControlCard">
+        <div class="section-heading">
+          <div>
+            <h2>Control manual</h2>
+            <p class="muted">Mantené presionado para mover. Al soltar, el robot se detiene.</p>
+          </div>
+          <label class="speed-control" for="speedSlider">
+            <span>Velocidad</span>
+            <strong><span id="speedValue">50</span>%</strong>
+          </label>
+        </div>
+        <input id="speedSlider" class="slider" type="range" min="20" max="100" value="50" step="5">
+
+        <div class="dpad" aria-label="Controles direccionales">
+          <button class="move-button up" data-direction="forward" type="button" aria-label="Avanzar">▲</button>
+          <button class="move-button left" data-direction="left" type="button" aria-label="Girar a la izquierda">◀</button>
+          <button id="stopButton" class="move-button stop" type="button" aria-label="Detener">■</button>
+          <button class="move-button right" data-direction="right" type="button" aria-label="Girar a la derecha">▶</button>
+          <button class="move-button down" data-direction="backward" type="button" aria-label="Retroceder">▼</button>
+        </div>
+      </section>
+
+      <section class="grid two-columns">
+        <article class="card">
+          <h2>Sensores</h2>
+          <div class="sensor-grid">
+            <div class="metric">
+              <span>Frente</span>
+              <strong id="sensorFront">--</strong>
+              <small>cm</small>
+            </div>
+            <div class="metric">
+              <span>Izquierda</span>
+              <strong id="sensorLeft">--</strong>
+              <small>cm</small>
+            </div>
+            <div class="metric">
+              <span>Derecha</span>
+              <strong id="sensorRight">--</strong>
+              <small>cm</small>
+            </div>
+          </div>
+        </article>
+
+        <article class="card">
+          <h2>Indicadores</h2>
+          <div class="led-list">
+            <div><span>Sistema</span><span id="ledPower" class="led"></span></div>
+            <div><span>Autónomo</span><span id="ledAutonomous" class="led"></span></div>
+            <div><span>Manual</span><span id="ledManual" class="led"></span></div>
+            <div><span>Obstáculo</span><span id="ledObstacle" class="led"></span></div>
+          </div>
+        </article>
+      </section>
+
+      <section class="card">
+        <h2>Audio</h2>
+        <label for="songSelect">Canción</label>
+        <select id="songSelect">
+          <option value="">Cargando canciones…</option>
+        </select>
+
+        <div class="audio-controls">
+          <button id="playButton" class="primary" type="button">▶ Reproducir</button>
+          <button id="pauseButton" class="secondary" type="button">⏸ Pausar</button>
+          <button id="audioStopButton" class="secondary" type="button">■ Detener</button>
+        </div>
+
+        <label class="volume-label" for="volumeSlider">
+          <span>Volumen</span>
+          <strong><span id="volumeValue">75</span>%</strong>
+        </label>
+        <input id="volumeSlider" class="slider" type="range" min="0" max="100" value="75" step="5">
+        <p id="audioStatus" class="muted">Sin reproducción</p>
+      </section>
+
+      <section class="card">
+        <div class="section-heading">
+          <div>
+            <h2>Mapa de recorrido</h2>
+            <p class="muted">Desconocido, visitado, obstáculo y posición estimada del robot.</p>
+          </div>
+        </div>
+        <div class="map-wrap">
+          <canvas id="mapCanvas" width="640" height="480" aria-label="Mapa del recorrido"></canvas>
+        </div>
+        <div class="map-legend">
+          <span><i class="legend unknown"></i>Desconocido</span>
+          <span><i class="legend visited"></i>Visitado</span>
+          <span><i class="legend obstacle"></i>Obstáculo</span>
+          <span><i class="legend robot"></i>Robot</span>
+        </div>
+      </section>
+
+      <p id="globalError" class="error global-error" role="alert" hidden></p>
+    </section>
+  </main>
+
+  <script src="js/app.js" defer></script>
+</body>
+</html>
