@@ -1,0 +1,14 @@
+POKY_BBLAYERS_CONF_VERSION = "2"
+
+BBPATH = "${TOPDIR}"
+BBFILES ?= ""
+
+# Las rutas @...@ las sustituye yocto/setup-yocto.sh por rutas absolutas.
+BBLAYERS ?= " \
+  @POKY@/meta \
+  @POKY@/meta-poky \
+  @POKY@/meta-yocto-bsp \
+  @POKY@/meta-raspberrypi \
+  @POKY@/meta-openembedded/meta-oe \
+  @METAROBOT@ \
+  "

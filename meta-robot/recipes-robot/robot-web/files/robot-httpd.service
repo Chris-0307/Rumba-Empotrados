@@ -1,0 +1,22 @@
+[Unit]
+Description=Servidor web del robot RumBa (busybox httpd)
+Documentation=https://github.com/Chris-0307/Rumba-Empotrados
+After=network.target
+Wants=network.target
+
+[Service]
+Type=exec
+ExecStart=/usr/sbin/httpd -f -vv -p 80 -h /srv/robot/www -c /etc/httpd.conf
+
+# Requisito de la especificacion: reinicio automatico ante fallos.
+Restart=on-failure
+RestartSec=2s
+
+# Endurecimiento basico. Si el CGI necesita escribir en /srv/robot,
+# quitar ProtectSystem o agregar ReadWritePaths=/srv/robot.
+NoNewPrivileges=true
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

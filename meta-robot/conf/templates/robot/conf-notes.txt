@@ -1,0 +1,11 @@
+### Proyecto RumBa - CE-1113 Sistemas Empotrados ###
+
+Imagen del proyecto:
+
+    bitbake robot-image
+
+Otros objetivos utiles:
+
+    bitbake librobot                 # solo la biblioteca dinamica
+    bitbake -e robot-image | grep ^IMAGE_INSTALL=
+    runqemu qemuarm nographic        # probar sin hardware (MACHINE=qemuarm)

@@ -1,1 +1,5 @@
 build/
+tmp/
+sstate-cache/
+downloads/
+buildhistory/

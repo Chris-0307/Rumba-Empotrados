@@ -1,0 +1,111 @@
+# ============================================================
+# local.conf del proyecto RumBa - CE-1113 Sistemas Empotrados
+# Yocto 5.0 "scarthgap" / Raspberry Pi 4
+# ============================================================
+# Este archivo esta versionado en meta-robot/conf/templates/robot/
+# para que la imagen sea reproducible desde cero.
+
+# ------------------------------------------------------------
+# Maquina objetivo
+# ------------------------------------------------------------
+# raspberrypi4    -> Raspberry Pi 4, userspace de 32 bits (lo que usa el curso)
+# raspberrypi4-64 -> Raspberry Pi 4, userspace de 64 bits
+# qemuarm         -> emulacion ARM 32 bits para probar sin hardware
+MACHINE ??= "raspberrypi4"
+
+DISTRO ?= "poky"
+
+# ipk es mas liviano y rapido que rpm para una imagen embebida.
+PACKAGE_CLASSES ?= "package_ipk"
+
+# El proyecto exige unidades systemd propias (.service).
+INIT_MANAGER = "systemd"
+
+# ------------------------------------------------------------
+# Fuentes del software del robot
+# ------------------------------------------------------------
+# CAMBIAR por la URL real del repositorio del grupo.
+# Durante el desarrollo se usa AUTOREV (siempre la punta de la rama).
+# Para la ENTREGA FINAL hay que fijar el commit exacto, por ejemplo:
+#   ROBOT_GIT_REV = "a1b2c3d4e5f6..."
+ROBOT_GIT_URI = "git://github.com/Chris-0307/Rumba-Empotrados.git;protocol=https;branch=develop"
+ROBOT_GIT_REV = "${AUTOREV}"
+
+# ------------------------------------------------------------
+# Opciones de imagen
+# ------------------------------------------------------------
+# debug-tweaks deja root sin contrasena: comodo para desarrollar,
+# QUITARLO en la entrega final y usar "allow-empty-password" nunca.
+EXTRA_IMAGE_FEATURES ?= "debug-tweaks"
+
+# ------------------------------------------------------------
+# Especifico de Raspberry Pi
+# ------------------------------------------------------------
+# I2C para el ADC ADS1115 (sensores Sharp)
+ENABLE_I2C:rpi = "1"
+KERNEL_MODULE_AUTOLOAD:rpi += "i2c-dev"
+
+# Arranque mas rapido (metrica de tiempo de arranque <= 15 s)
+DISABLE_SPLASH:rpi = "1"
+DISABLE_RPI_BOOT_LOGO:rpi = "1"
+BOOT_DELAY:rpi = "0"
+BOOT_DELAY_MS:rpi = "0"
+
+# Consola serie: imprescindible para depurar arranque sin HDMI.
+ENABLE_UART:rpi = "1"
+
+# PWM por hardware en GPIO18 (canal 0) y GPIO19 (canal 1) -> /sys/class/pwm/pwmchip0
+# OJO: pwm-2chan usa el mismo periferico PWM que la salida analogica de
+# 3.5 mm. Si se habilita "dtparam=audio=on" a la vez, uno de los dos falla.
+# Por eso el audio se resuelve con dongle USB o DAC I2S (ver yocto/README.md).
+RPI_EXTRA_CONFIG:rpi = '\n \
+    # PWM por hardware para los motores (GPIO18 y GPIO19) \n \
+    dtoverlay=pwm-2chan \n \
+    '
+
+# Sin entorno grafico en el sistema embebido.
+DISTRO_FEATURES:remove = "x11 wayland"
+
+# ------------------------------------------------------------
+# Rendimiento de la construccion
+# ------------------------------------------------------------
+# Regla practica: cada hilo de compilacion puede llegar a usar ~2 GB de
+# RAM en los paquetes pesados (gcc-cross, glibc, kernel, systemd). El
+# limite real NO son los nucleos sino la memoria:
+#
+#     hilos seguros ~= RAM_en_GB / 2
+#
+# Con 16 GB -> 6 es un valor conservador que no hace swapear la maquina.
+# Si al medir con "free -g" durante el build sobra memoria, se puede
+# subir a 8. Si aparece un "Killed" o "c++: fatal error: Killed signal
+# terminated program cc1plus", hay que BAJARLO: eso es el OOM killer.
+BB_NUMBER_THREADS ?= "6"
+PARALLEL_MAKE ?= "-j 6"
+
+# Borra el directorio de trabajo de cada receta al terminar.
+# Ahorra decenas de GB de disco a costa de rebuilds mas lentos.
+INHERIT += "rm_work"
+
+# buildhistory genera el reporte de tamanos por paquete que se usa
+# para justificar cada paquete agregado a la imagen:
+#   build/buildhistory/images/<machine>/glibc/robot-image/installed-package-sizes.txt
+INHERIT += "buildhistory"
+BUILDHISTORY_COMMIT = "1"
+
+USER_CLASSES ?= "buildstats"
+PATCHRESOLVE = "noop"
+
+BB_DISKMON_DIRS ??= "\
+    STOPTASKS,${TMPDIR},1G,100K \
+    STOPTASKS,${DL_DIR},1G,100K \
+    STOPTASKS,${SSTATE_DIR},1G,100K \
+    STOPTASKS,/tmp,100M,100K \
+    HALT,${TMPDIR},100M,1K \
+    HALT,${DL_DIR},100M,1K \
+    HALT,${SSTATE_DIR},100M,1K \
+    HALT,/tmp,10M,1K"
+
+CONF_VERSION = "2"
+
+# DL_DIR y SSTATE_DIR los escribe yocto/setup-yocto.sh al final de
+# este archivo con rutas absolutas de la maquina donde se construye.
