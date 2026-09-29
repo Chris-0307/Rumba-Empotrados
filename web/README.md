@@ -23,7 +23,7 @@ Teléfono
              librobot.so
       +----------+----------+---------+
       |          |          |         |
-   motores    sensores     LEDs      audio
+   motores     HC-SR04     LEDs      audio
 ```
 
 `httpd` sirve la interfaz. El CGI funciona como puerta de entrada HTTP y un proceso
@@ -36,7 +36,7 @@ Esto evita inicializar/cerrar GPIO, PWM, sensores y audio en cada petición CGI.
 - Cambio entre modo autónomo y manual.
 - Control direccional táctil con parada al soltar.
 - Ajuste de velocidad manual.
-- Lectura de los tres sensores de distancia.
+- Lectura del sensor frontal HC-SR04.
 - Estado de los cuatro LEDs.
 - Lista de MP3, play, pausa, stop y volumen.
 - Visualización de la grilla 2D del recorrido.
@@ -77,3 +77,8 @@ El siguiente bloque es implementar:
 5. Receta Yocto para instalar los binarios y `/www`.
 
 El contrato de las operaciones HTTP está definido en `API.md`.
+
+
+## Sensor de proximidad
+
+El panel muestra una unica lectura frontal proveniente del HC-SR04. La respuesta de estado esperada por el frontend usa `sensors.front`.

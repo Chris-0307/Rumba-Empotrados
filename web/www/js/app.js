@@ -27,8 +27,6 @@ const ui = {
   speedValue: $("speedValue"),
   stopButton: $("stopButton"),
   sensorFront: $("sensorFront"),
-  sensorLeft: $("sensorLeft"),
-  sensorRight: $("sensorRight"),
   ledPower: $("ledPower"),
   ledAutonomous: $("ledAutonomous"),
   ledManual: $("ledManual"),
@@ -154,8 +152,6 @@ function renderState(state) {
 
   const sensors = state.sensors || {};
   ui.sensorFront.textContent = formatDistance(sensors.front);
-  ui.sensorLeft.textContent = formatDistance(sensors.left);
-  ui.sensorRight.textContent = formatDistance(sensors.right);
 
   const leds = state.leds || {};
   setLed(ui.ledPower, leds.power);
