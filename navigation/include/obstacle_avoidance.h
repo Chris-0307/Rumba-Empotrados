@@ -1,7 +1,7 @@
 #ifndef OBSTACLE_AVOIDANCE_H
 #define OBSTACLE_AVOIDANCE_H
 
-#define MAX_AVOIDANCE_ACTIONS 3
+#define MAX_AVOIDANCE_ACTIONS 2
 
 typedef enum
 {
@@ -20,9 +20,8 @@ typedef struct
 
 AvoidancePlan obstacle_avoidance_plan(
     float front_distance,
-    float left_distance,
-    float right_distance,
-    float min_distance
+    float min_distance,
+    int turn_left
 );
 
 const char *robot_action_to_string(RobotAction action);
