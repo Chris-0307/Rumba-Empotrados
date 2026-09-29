@@ -19,7 +19,6 @@ add_library(robot SHARED
 
     src/sensors.c
     src/sensor_backend.c
-    src/adc.c
 
     src/leds.c
     src/audio.c
@@ -33,7 +32,6 @@ target_include_directories(robot
 target_link_libraries(robot
     PRIVATE
         PkgConfig::GPIOD
-        m
 )
 
 set_target_properties(robot PROPERTIES

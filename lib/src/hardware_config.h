@@ -45,17 +45,18 @@
 #define MOTOR_PWM_PERIOD_NS 1000000UL
 
 /* =========================
- * ADC ADS1115 + Sharp
- * ========================= */
-#define I2C_DEVICE "/dev/i2c-1"
-#define ADS1115_ADDRESS 0x48
+ * Sensor ultrasonico HC-SR04
+ * =========================
+ * TRIG puede conectarse directamente a un GPIO de 3.3 V.
+ * ECHO entrega 5 V y DEBE reducirse a 3.3 V antes de entrar
+ * a la Raspberry Pi (por ejemplo, con un divisor resistivo).
+ */
+#define GPIO_HCSR04_TRIGGER 24U
+#define GPIO_HCSR04_ECHO    25U
 
-#define SENSOR_FRONT_CHANNEL 0
-#define SENSOR_LEFT_CHANNEL  1
-#define SENSOR_RIGHT_CHANNEL 2
-
-#define SHARP_MIN_DISTANCE_CM 10.0f
-#define SHARP_MAX_DISTANCE_CM 80.0f
+#define HCSR04_TIMEOUT_US 30000U
+#define HCSR04_MIN_DISTANCE_CM 2.0f
+#define HCSR04_MAX_DISTANCE_CM 400.0f
 
 /* =========================
  * Audio

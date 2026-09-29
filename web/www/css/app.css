@@ -127,6 +127,7 @@ button:disabled { opacity: .45; cursor: not-allowed; }
 .grid { display: grid; gap: 14px; }
 .two-columns { grid-template-columns: 1fr 1fr; }
 .sensor-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.sensor-grid.single-sensor { grid-template-columns: 1fr; }
 .metric { background: #0f172a; border-radius: 12px; padding: 12px 8px; text-align: center; }
 .metric span, .metric small { display: block; color: #94a3b8; font-size: .75rem; }
 .metric strong { display: block; font-size: 1.35rem; margin: 4px 0 1px; }

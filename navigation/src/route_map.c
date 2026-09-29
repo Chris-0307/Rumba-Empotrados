@@ -9,6 +9,55 @@ static int position_is_valid(int x, int y)
            y < MAP_HEIGHT;
 }
 
+static void direction_delta(
+    RobotDirection direction,
+    int *dx,
+    int *dy
+)
+{
+    *dx = 0;
+    *dy = 0;
+
+    switch (direction)
+    {
+        case DIR_NORTH:
+            *dy = -1;
+            break;
+
+        case DIR_NORTHEAST:
+            *dx = 1;
+            *dy = -1;
+            break;
+
+        case DIR_EAST:
+            *dx = 1;
+            break;
+
+        case DIR_SOUTHEAST:
+            *dx = 1;
+            *dy = 1;
+            break;
+
+        case DIR_SOUTH:
+            *dy = 1;
+            break;
+
+        case DIR_SOUTHWEST:
+            *dx = -1;
+            *dy = 1;
+            break;
+
+        case DIR_WEST:
+            *dx = -1;
+            break;
+
+        case DIR_NORTHWEST:
+            *dx = -1;
+            *dy = -1;
+            break;
+    }
+}
+
 void route_map_init(RouteMap *map)
 {
     for (int y = 0; y < MAP_HEIGHT; y++)
@@ -29,110 +78,67 @@ void route_map_init(RouteMap *map)
 
 void route_map_move_forward(RouteMap *map)
 {
-    int new_x = map->robot_x;
-    int new_y = map->robot_y;
+    int dx;
+    int dy;
+    int new_x;
+    int new_y;
 
-    switch (map->direction)
-    {
-        case DIR_NORTH:
-            new_y--;
-            break;
+    direction_delta(map->direction, &dx, &dy);
 
-        case DIR_EAST:
-            new_x++;
-            break;
-
-        case DIR_SOUTH:
-            new_y++;
-            break;
-
-        case DIR_WEST:
-            new_x--;
-            break;
-    }
+    new_x = map->robot_x + dx;
+    new_y = map->robot_y + dy;
 
     if (position_is_valid(new_x, new_y))
     {
         map->robot_x = new_x;
         map->robot_y = new_y;
-
         map->cells[new_y][new_x] = CELL_VISITED;
     }
 }
 
 void route_map_move_backward(RouteMap *map)
 {
-    int new_x = map->robot_x;
-    int new_y = map->robot_y;
+    int dx;
+    int dy;
+    int new_x;
+    int new_y;
 
-    switch (map->direction)
-    {
-        case DIR_NORTH:
-            new_y++;
-            break;
+    direction_delta(map->direction, &dx, &dy);
 
-        case DIR_EAST:
-            new_x--;
-            break;
-
-        case DIR_SOUTH:
-            new_y--;
-            break;
-
-        case DIR_WEST:
-            new_x++;
-            break;
-    }
+    new_x = map->robot_x - dx;
+    new_y = map->robot_y - dy;
 
     if (position_is_valid(new_x, new_y))
     {
         map->robot_x = new_x;
         map->robot_y = new_y;
-
         map->cells[new_y][new_x] = CELL_VISITED;
     }
 }
 
 void route_map_turn_left(RouteMap *map)
 {
-    if (map->direction == DIR_NORTH)
-    {
-        map->direction = DIR_WEST;
-    }
-    else
-    {
-        map->direction--;
-    }
+    map->direction =
+        (RobotDirection)((map->direction + 7) % 8);
 }
 
 void route_map_turn_right(RouteMap *map)
 {
-    map->direction = (map->direction + 1) % 4;
+    map->direction =
+        (RobotDirection)((map->direction + 1) % 8);
 }
 
 void route_map_mark_obstacle_front(RouteMap *map)
 {
-    int obstacle_x = map->robot_x;
-    int obstacle_y = map->robot_y;
+    int dx;
+    int dy;
+    int obstacle_x;
+    int obstacle_y;
 
-    switch (map->direction)
-    {
-        case DIR_NORTH:
-            obstacle_y--;
-            break;
+    direction_delta(map->direction, &dx, &dy);
 
-        case DIR_EAST:
-            obstacle_x++;
-            break;
-
-        case DIR_SOUTH:
-            obstacle_y++;
-            break;
-
-        case DIR_WEST:
-            obstacle_x--;
-            break;
-    }
+    obstacle_x = map->robot_x + dx;
+    obstacle_y = map->robot_y + dy;
 
     if (position_is_valid(obstacle_x, obstacle_y))
     {

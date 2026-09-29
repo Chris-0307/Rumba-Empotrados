@@ -11,12 +11,20 @@ typedef enum
     CELL_OBSTACLE
 } MapCell;
 
+/*
+ * Ocho orientaciones para representar los giros cortos de aproximadamente
+ * 45 grados usados con el unico sensor frontal HC-SR04.
+ */
 typedef enum
 {
     DIR_NORTH = 0,
+    DIR_NORTHEAST,
     DIR_EAST,
+    DIR_SOUTHEAST,
     DIR_SOUTH,
-    DIR_WEST
+    DIR_SOUTHWEST,
+    DIR_WEST,
+    DIR_NORTHWEST
 } RobotDirection;
 
 typedef struct
@@ -36,6 +44,7 @@ void route_map_move_forward(RouteMap *map);
 
 void route_map_move_backward(RouteMap *map);
 
+/* Cada llamada representa un giro estimado de 45 grados. */
 void route_map_turn_left(RouteMap *map);
 
 void route_map_turn_right(RouteMap *map);
