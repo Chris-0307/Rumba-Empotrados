@@ -1,5 +1,6 @@
 <!doctype html>
 <html lang="es">
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -7,6 +8,7 @@
   <title>RumBa Control</title>
   <link rel="stylesheet" href="css/app.css">
 </head>
+
 <body>
   <main class="app-shell">
     <section id="loginView" class="login-view">
@@ -25,7 +27,7 @@
         <hr>
 
         <label for="raspberryIp">IP de la Raspberry</label>
-        <input id="raspberryIp" type="text" value="192.168.1.50" placeholder="Ej: 192.168.1.50">
+        <input id="raspberryIp" type="text" value="192.168.100.174" placeholder="Ej: 192.168.100.174">
 
         <label for="raspberryPort">Puerto</label>
         <input id="raspberryPort" type="number" value="8080" min="1" max="65535" placeholder="Ej: 8080">
@@ -81,9 +83,11 @@
 
         <div class="dpad" aria-label="Controles direccionales">
           <button class="move-button up" data-direction="forward" type="button" aria-label="Avanzar">▲</button>
-          <button class="move-button left" data-direction="left" type="button" aria-label="Girar a la izquierda">◀</button>
+          <button class="move-button left" data-direction="left" type="button"
+            aria-label="Girar a la izquierda">◀</button>
           <button id="stopButton" class="move-button stop" type="button" aria-label="Detener">■</button>
-          <button class="move-button right" data-direction="right" type="button" aria-label="Girar a la derecha">▶</button>
+          <button class="move-button right" data-direction="right" type="button"
+            aria-label="Girar a la derecha">▶</button>
           <button class="move-button down" data-direction="backward" type="button" aria-label="Retroceder">▼</button>
         </div>
       </section>
@@ -156,4 +160,5 @@
 
   <script src="js/app.js" defer></script>
 </body>
+
 </html>
