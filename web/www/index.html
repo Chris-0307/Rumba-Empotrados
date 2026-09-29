@@ -21,6 +21,21 @@
         <input id="password" name="password" type="password" autocomplete="current-password" required>
 
         <button class="primary full" type="submit">Iniciar sesión</button>
+
+        <hr>
+
+        <label for="raspberryIp">IP de la Raspberry</label>
+        <input id="raspberryIp" type="text" value="192.168.1.50" placeholder="Ej: 192.168.1.50">
+
+        <label for="raspberryPort">Puerto</label>
+        <input id="raspberryPort" type="number" value="8080" min="1" max="65535" placeholder="Ej: 8080">
+
+        <button id="testConnectionButton" class="secondary full" type="button">
+          Probar conexión con Raspberry
+        </button>
+
+        <p id="testConnectionResult" class="muted">Sin probar</p>
+
         <p id="loginError" class="error" role="alert" hidden></p>
       </form>
     </section>

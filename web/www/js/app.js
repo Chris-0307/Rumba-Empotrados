@@ -11,6 +11,10 @@ const ui = {
   dashboardView: $("dashboardView"),
   loginForm: $("loginForm"),
   loginError: $("loginError"),
+  raspberryIp: $("raspberryIp"),
+  raspberryPort: $("raspberryPort"),
+  testConnectionButton: $("testConnectionButton"),
+  testConnectionResult: $("testConnectionResult"),
   globalError: $("globalError"),
   connectionText: $("connectionText"),
   connectionDot: $("connectionDot"),
@@ -299,6 +303,39 @@ function emergencyStopBeacon() {
   navigator.sendBeacon(API, body);
   heldDirection = null;
 }
+
+ui.testConnectionButton.addEventListener("click", async () => {
+  const ip = ui.raspberryIp.value.trim();
+  const port = ui.raspberryPort.value.trim();
+
+  if (!ip) {
+    ui.testConnectionResult.textContent = "Escribí la IP de la Raspberry";
+    return;
+  }
+
+  if (!port) {
+    ui.testConnectionResult.textContent = "Escribí el puerto";
+    return;
+  }
+
+  ui.testConnectionResult.textContent = "Probando conexión...";
+
+  try {
+    const response = await fetch(`http://${ip}:${port}/api/status`, {
+      cache: "no-store"
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    ui.testConnectionResult.textContent = JSON.stringify(data);
+  } catch (error) {
+    ui.testConnectionResult.textContent = `Error: ${error.message}`;
+  }
+});
 
 ui.loginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
