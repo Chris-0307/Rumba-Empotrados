@@ -71,10 +71,6 @@ int robot_stop(void);
 
 float robot_get_front_distance(void);
 
-float robot_get_left_distance(void);
-
-float robot_get_right_distance(void);
-
 
 /* =========================================================
  * LEDs

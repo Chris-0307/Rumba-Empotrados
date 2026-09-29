@@ -36,18 +36,24 @@ La logica de control diferencial se encuentra definida. La integracion
 fisica con PWM y el controlador de motores queda pendiente hasta definir
 el hardware definitivo.
 
-## Sensores
+## Sensor de proximidad
 
-La biblioteca proporciona las siguientes funciones publicas:
+El robot utiliza un unico sensor ultrasonico frontal `HC-SR04`. La API
+publica expone:
 
 ```c
 robot_get_front_distance();
-robot_get_left_distance();
-robot_get_right_distance();
 ```
 
-Las distancias se expresan en centimetros. La integracion fisica queda
-pendiente hasta seleccionar los sensores definitivos.
+La distancia se expresa en centimetros. El sensor se controla con dos GPIO:
+`TRIG` en GPIO24 y `ECHO` en GPIO25 (numeracion BCM).
+
+> **Importante:** la salida `ECHO` del HC-SR04 es de 5 V y no debe conectarse
+> directamente a la Raspberry Pi. Debe reducirse a 3.3 V mediante un divisor
+> resistivo o un adaptador de nivel.
+
+La lectura genera un pulso de 10 us en `TRIG`, mide la duracion del pulso
+`ECHO` y la convierte a distancia usando la velocidad aproximada del sonido.
 
 ## LEDs
 
@@ -131,7 +137,7 @@ CMake genera la biblioteca dinamica `librobot.so`.
 - API publica de hardware definida.
 - Proyecto CMake definido para generar `librobot.so`.
 - Logica de control diferencial de motores definida.
-- Interfaz de lectura de sensores definida.
+- Lectura real del sensor frontal HC-SR04 implementada mediante `libgpiod`.
 - Control real de los cuatro LEDs implementado mediante `libgpiod`.
-- Integracion fisica de motores y sensores pendiente.
+- Validacion fisica del HC-SR04 y calibracion del giro pendiente.
 - Implementacion definitiva de audio pendiente.
