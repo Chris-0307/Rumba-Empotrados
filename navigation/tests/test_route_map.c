@@ -11,23 +11,17 @@ int main(void)
     route_map_print(&map);
 
     printf("\nEl robot avanza dos celdas:\n");
-
     route_map_move_forward(&map);
     route_map_move_forward(&map);
-
     route_map_print(&map);
 
     printf("\nSe detecta un obstaculo al frente:\n");
-
     route_map_mark_obstacle_front(&map);
-
     route_map_print(&map);
 
-    printf("\nEl robot gira a la derecha y avanza:\n");
-
+    printf("\nEl robot gira 45 grados a la derecha y avanza:\n");
     route_map_turn_right(&map);
     route_map_move_forward(&map);
-
     route_map_print(&map);
 
     return 0;

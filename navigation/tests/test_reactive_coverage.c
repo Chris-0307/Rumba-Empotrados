@@ -4,8 +4,6 @@
 typedef struct
 {
     float front;
-    float left;
-    float right;
 } SensorSample;
 
 int main(void)
@@ -14,12 +12,13 @@ int main(void)
 
     SensorSample samples[] =
     {
-        {100.0f, 100.0f, 100.0f},
-        {80.0f,  70.0f,  90.0f},
-        {15.0f,  80.0f,  30.0f},
-        {90.0f,  60.0f,  80.0f},
-        {70.0f,  10.0f,  80.0f},
-        {100.0f, 100.0f, 100.0f}
+        {100.0f},
+        {80.0f},
+        {15.0f},
+        {14.0f},
+        {60.0f},
+        {12.0f},
+        {70.0f}
     };
 
     int sample_count = sizeof(samples) / sizeof(samples[0]);
@@ -30,19 +29,11 @@ int main(void)
     for (int i = 0; i < sample_count; i++)
     {
         printf("\nCiclo %d\n", i + 1);
-
-        printf(
-            "Sensores: frente=%.1f cm, izquierda=%.1f cm, derecha=%.1f cm\n",
-            samples[i].front,
-            samples[i].left,
-            samples[i].right
-        );
+        printf("Sensor frontal: %.1f cm\n", samples[i].front);
 
         AvoidancePlan plan = coverage_step(
             &state,
             samples[i].front,
-            samples[i].left,
-            samples[i].right,
             min_distance
         );
 
@@ -57,7 +48,7 @@ int main(void)
 
     printf("\nResumen\n");
     printf("Ciclos ejecutados: %u\n", state.cycles);
-    printf("Obstaculos frontales detectados: %u\n",
+    printf("Obstaculos detectados: %u\n",
            state.obstacles_detected);
 
     return 0;
