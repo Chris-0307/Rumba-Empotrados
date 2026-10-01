@@ -82,3 +82,12 @@ El contrato de las operaciones HTTP está definido en `API.md`.
 ## Sensor de proximidad
 
 El panel muestra una unica lectura frontal proveniente del HC-SR04. La respuesta de estado esperada por el frontend usa `sensors.front`.
+
+## Levantando el servidor web
+
+Para que el servidor wev entre en ejecución tenemos que ingresar a web/www y usar el comando:
+
+`python3 -m http.server 5500 --bind 0.0.0.0`
+
+
+Es importante recalcar que el ejemplo del comando usamos el puerto `5500` este puerto puede cambiarse pero hay que asegurar que el backend, al empezar a ejecutarse, **permita conexiones desde el nuevo puerto** para evitar errores de CORS.

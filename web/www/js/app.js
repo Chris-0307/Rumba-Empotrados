@@ -1,5 +1,8 @@
 "use strict";
 
+
+//const API = "/cgi-bin/robot_api.cgi";
+const API = "http_//172.20.10.12:8080";
 const POLL_STATE_MS = 600;
 const POLL_MAP_MS = 1200;
 
