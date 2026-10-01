@@ -1,7 +1,8 @@
 "use strict";
 
+
 //const API = "/cgi-bin/robot_api.cgi";
-const API = "http_//192.168.100.174:8080";
+const API = "http_//172.20.10.12:8080";
 const POLL_STATE_MS = 600;
 const POLL_MAP_MS = 1200;
 
@@ -35,54 +36,69 @@ const ui = {
   songSelect: $("songSelect"),
   playButton: $("playButton"),
   pauseButton: $("pauseButton"),
-  audioStopButton: $("audioStopButton"),
+  audioNextButton: $("audioNextButton"),
   volumeSlider: $("volumeSlider"),
   volumeValue: $("volumeValue"),
   audioStatus: $("audioStatus"),
   mapCanvas: $("mapCanvas")
 };
 
+let apiBase = "";
+let authToken = "";
 let loggedIn = false;
 let currentMode = null;
 let heldDirection = null;
 let stateTimer = null;
 let mapTimer = null;
+let songs = [];
 
-function formBody(values) {
-  return new URLSearchParams(values).toString();
+function getApiBase() {
+  const ip = ui.raspberryIp.value.trim();
+  const port = ui.raspberryPort.value.trim();
+
+  if (!ip || !port) {
+    throw new Error("Falta la IP o el puerto de la Raspberry");
+  }
+
+  return `http://${ip}:${port}`;
 }
 
-async function apiGet(action) {
-  const response = await fetch(`${API}?action=${encodeURIComponent(action)}`, {
-    cache: "no-store",
-    credentials: "same-origin"
-  });
-  return parseResponse(response);
-}
+async function apiRequest(path, method = "GET", body = null, useAuth = true, keepalive = false) {
+  const headers = {};
 
-async function apiPost(action, values = {}, keepalive = false) {
-  const response = await fetch(API, {
-    method: "POST",
-    credentials: "same-origin",
+  if (body !== null) {
+    headers["Content-Type"] = "application/json";
+  }
+
+  if (useAuth && authToken) {
+    headers.Authorization = `Bearer ${authToken}`;
+  }
+
+  const response = await fetch(`${apiBase}${path}`, {
+    method,
+    headers,
     cache: "no-store",
     keepalive,
-    headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
-    body: formBody({ action, ...values })
+    body: body !== null ? JSON.stringify(body) : undefined
   });
-  return parseResponse(response);
-}
 
-async function parseResponse(response) {
   let data = {};
-  try { data = await response.json(); } catch (_) { /* respuesta no JSON */ }
-
-  if (response.status === 401) {
-    showLogin();
-    throw new Error(data.error || "Sesión no válida");
+  try {
+    data = await response.json();
+  } catch (_) {
+    // La API normalmente responde JSON.
   }
-  if (!response.ok || data.ok === false) {
+
+  if (response.status === 401 && useAuth) {
+    authToken = "";
+    showLogin();
+    throw new Error("Sesión no válida");
+  }
+
+  if (!response.ok) {
     throw new Error(data.error || `Error HTTP ${response.status}`);
   }
+
   return data;
 }
 
@@ -112,7 +128,13 @@ async function showDashboard() {
   loggedIn = true;
   ui.loginView.hidden = true;
   ui.dashboardView.hidden = false;
-  await Promise.allSettled([refreshState(), refreshMap(), loadSongs()]);
+
+  await Promise.allSettled([
+    refreshState(),
+    refreshMap(),
+    loadSongs()
+  ]);
+
   startPolling();
 }
 
@@ -130,55 +152,78 @@ function stopPolling() {
 }
 
 function formatDistance(value) {
-  return Number.isFinite(Number(value)) && Number(value) >= 0 ? Number(value).toFixed(1) : "--";
+  if (!Number.isFinite(Number(value)) || Number(value) < 0) {
+    return "--";
+  }
+  return Number(value).toFixed(1);
 }
 
 function setLed(element, on, alert = false) {
   element.classList.toggle("on", Boolean(on));
-  element.classList.toggle("alert", alert);
+  element.classList.toggle("alert", Boolean(on) && alert);
 }
 
-function renderState(state) {
-  currentMode = state.mode || "unknown";
-  const manual = currentMode === "manual";
+function songTitle(songId) {
+  const song = songs.find((item) => Number(item.id) === Number(songId));
+  return song ? song.title : `Canción ${songId}`;
+}
 
-  ui.modeBadge.textContent = manual ? "MANUAL" : currentMode === "autonomous" ? "AUTÓNOMO" : "--";
+function renderState(modeData, sensors, indicators, audio) {
+  currentMode = modeData.mode || "unknown";
+  const manual = currentMode === "manual";
+  const automatic = currentMode === "automatic";
+
+  ui.modeBadge.textContent = manual ? "MANUAL" : automatic ? "AUTÓNOMO" : "--";
   ui.manualModeButton.classList.toggle("active", manual);
-  ui.autonomousModeButton.classList.toggle("active", currentMode === "autonomous");
+  ui.autonomousModeButton.classList.toggle("active", automatic);
 
   ui.manualControlCard.style.opacity = manual ? "1" : ".55";
   document.querySelectorAll(".move-button").forEach((button) => {
     button.disabled = !manual;
   });
 
-  const sensors = state.sensors || {};
-  ui.sensorFront.textContent = formatDistance(sensors.front);
+  ui.sensorFront.textContent = formatDistance(sensors.front_cm);
 
-  const leds = state.leds || {};
-  setLed(ui.ledPower, leds.power);
-  setLed(ui.ledAutonomous, leds.autonomous);
-  setLed(ui.ledManual, leds.manual);
-  setLed(ui.ledObstacle, leds.obstacle, true);
+  setLed(ui.ledPower, indicators.system === "functional");
+  setLed(ui.ledAutonomous, indicators.mode === "automatic");
+  setLed(ui.ledManual, indicators.mode === "manual");
+  setLed(ui.ledObstacle, indicators.obstacle === true, true);
 
-  const audio = state.audio || {};
   if (Number.isFinite(Number(audio.volume))) {
     ui.volumeSlider.value = audio.volume;
     ui.volumeValue.textContent = audio.volume;
   }
-  if (audio.file) {
-    ui.audioStatus.textContent = `${audio.state || "playing"}: ${audio.file}`;
+
+  if (Number(audio.song_id) > 0) {
+    ui.songSelect.value = String(audio.song_id);
+    const title = songTitle(audio.song_id);
+
+    if (audio.state === "playing") {
+      ui.audioStatus.textContent = `Reproduciendo: ${title}`;
+    } else if (audio.state === "paused") {
+      ui.audioStatus.textContent = `Pausado: ${title}`;
+    } else {
+      ui.audioStatus.textContent = title;
+    }
   } else {
-    ui.audioStatus.textContent = audio.state === "paused" ? "Pausado" : "Sin reproducción";
+    ui.audioStatus.textContent = "Sin reproducción";
   }
 }
 
 async function refreshState() {
   if (!loggedIn) return;
+
   try {
-    const data = await apiGet("state");
+    const results = await Promise.all([
+      apiRequest("/api/mode"),
+      apiRequest("/api/sensors"),
+      apiRequest("/api/indicators"),
+      apiRequest("/api/audio/state")
+    ]);
+
+    renderState(results[0], results[1], results[2], results[3]);
     setConnection(true);
     clearError();
-    renderState(data);
   } catch (error) {
     setConnection(false);
     if (loggedIn) showError(error.message);
@@ -187,8 +232,9 @@ async function refreshState() {
 
 async function refreshMap() {
   if (!loggedIn) return;
+
   try {
-    const data = await apiGet("map");
+    const data = await apiRequest("/api/map");
     drawMap(data);
   } catch (error) {
     if (loggedIn) showError(error.message);
@@ -197,9 +243,10 @@ async function refreshMap() {
 
 async function loadSongs() {
   try {
-    const data = await apiGet("audio_list");
-    const songs = Array.isArray(data.songs) ? data.songs : [];
+    const data = await apiRequest("/api/audio/songs");
+    songs = Array.isArray(data) ? data : [];
     ui.songSelect.innerHTML = "";
+
     if (!songs.length) {
       const option = document.createElement("option");
       option.textContent = "No hay MP3 disponibles";
@@ -207,10 +254,11 @@ async function loadSongs() {
       ui.songSelect.append(option);
       return;
     }
+
     for (const song of songs) {
       const option = document.createElement("option");
-      option.value = song;
-      option.textContent = song;
+      option.value = song.id;
+      option.textContent = song.title;
       ui.songSelect.append(option);
     }
   } catch (error) {
@@ -228,6 +276,7 @@ function drawMap(map) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.fillStyle = "#020617";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
+
   if (width <= 0 || height <= 0) return;
 
   const cell = Math.min(canvas.width / width, canvas.height / height);
@@ -241,17 +290,30 @@ function drawMap(map) {
 
   for (let y = 0; y < height; y += 1) {
     for (let x = 0; x < width; x += 1) {
-      const value = cells[y * width + x] || "unknown";
+      let value = "unknown";
+
+      if (Array.isArray(cells[y])) {
+        value = cells[y][x] || "unknown";
+      } else {
+        value = cells[y * width + x] || "unknown";
+      }
+
       ctx.fillStyle = colors[value] || colors.unknown;
-      ctx.fillRect(ox + x * cell, oy + y * cell, Math.max(1, cell - 1), Math.max(1, cell - 1));
+      ctx.fillRect(
+        ox + x * cell,
+        oy + y * cell,
+        Math.max(1, cell - 1),
+        Math.max(1, cell - 1)
+      );
     }
   }
 
   if (map.robot && Number.isFinite(Number(map.robot.x)) && Number.isFinite(Number(map.robot.y))) {
-    const cx = ox + (Number(map.robot.x) + .5) * cell;
-    const cy = oy + (Number(map.robot.y) + .5) * cell;
+    const cx = ox + (Number(map.robot.x) + 0.5) * cell;
+    const cy = oy + (Number(map.robot.y) + 0.5) * cell;
+
     ctx.beginPath();
-    ctx.arc(cx, cy, Math.max(3, cell * .34), 0, Math.PI * 2);
+    ctx.arc(cx, cy, Math.max(3, cell * 0.34), 0, Math.PI * 2);
     ctx.fillStyle = "#22c55e";
     ctx.fill();
   }
@@ -259,8 +321,11 @@ function drawMap(map) {
 
 async function setMode(mode) {
   try {
-    if (heldDirection) await stopMovement();
-    await apiPost("set_mode", { mode });
+    if (heldDirection) {
+      await stopMovement();
+    }
+
+    await apiRequest("/api/mode", "PUT", { mode });
     await refreshState();
   } catch (error) {
     showError(error.message);
@@ -269,10 +334,15 @@ async function setMode(mode) {
 
 async function startMovement(direction, button) {
   if (currentMode !== "manual" || heldDirection) return;
+
   heldDirection = direction;
   button?.classList.add("pressed");
+
   try {
-    await apiPost("move", { direction, speed: ui.speedSlider.value });
+    await apiRequest("/api/move", "POST", {
+      direction,
+      speed: Number(ui.speedSlider.value)
+    });
   } catch (error) {
     heldDirection = null;
     button?.classList.remove("pressed");
@@ -281,44 +351,44 @@ async function startMovement(direction, button) {
 }
 
 async function stopMovement(keepalive = false) {
-  document.querySelectorAll(".move-button.pressed").forEach((button) => button.classList.remove("pressed"));
-  if (!heldDirection && !keepalive) {
-    try { await apiPost("stop"); } catch (_) { /* mantener parada como mejor esfuerzo */ }
-    return;
-  }
+  document.querySelectorAll(".move-button.pressed").forEach((button) => {
+    button.classList.remove("pressed");
+  });
+
   heldDirection = null;
+
   try {
-    await apiPost("stop", {}, keepalive);
+    await apiRequest("/api/move", "POST", {
+      direction: "stop",
+      speed: 0
+    }, true, keepalive);
   } catch (error) {
     if (!keepalive) showError(error.message);
   }
 }
 
-function emergencyStopBeacon() {
-  if (!loggedIn) return;
-  const body = new Blob([formBody({ action: "stop" })], { type: "application/x-www-form-urlencoded;charset=UTF-8" });
-  navigator.sendBeacon(API, body);
+function emergencyStop() {
+  if (!loggedIn || !authToken || !apiBase) return;
+
+  fetch(`${apiBase}/api/move`, {
+    method: "POST",
+    keepalive: true,
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${authToken}`
+    },
+    body: JSON.stringify({ direction: "stop", speed: 0 })
+  }).catch(() => {});
+
   heldDirection = null;
 }
 
 ui.testConnectionButton.addEventListener("click", async () => {
-  const ip = ui.raspberryIp.value.trim();
-  const port = ui.raspberryPort.value.trim();
-
-  if (!ip) {
-    ui.testConnectionResult.textContent = "Escribí la IP de la Raspberry";
-    return;
-  }
-
-  if (!port) {
-    ui.testConnectionResult.textContent = "Escribí el puerto";
-    return;
-  }
-
   ui.testConnectionResult.textContent = "Probando conexión...";
 
   try {
-    const response = await fetch(`http://${ip}:${port}/api/status`, {
+    const testBase = getApiBase();
+    const response = await fetch(`${testBase}/api/status`, {
       cache: "no-store"
     });
 
@@ -328,7 +398,12 @@ ui.testConnectionButton.addEventListener("click", async () => {
       throw new Error(`HTTP ${response.status}`);
     }
 
-    ui.testConnectionResult.textContent = JSON.stringify(data);
+    if (data.status !== "ok") {
+      throw new Error("Respuesta inesperada");
+    }
+
+    apiBase = testBase;
+    ui.testConnectionResult.textContent = "Conexión OK";
   } catch (error) {
     ui.testConnectionResult.textContent = `Error: ${error.message}`;
   }
@@ -337,13 +412,24 @@ ui.testConnectionButton.addEventListener("click", async () => {
 ui.loginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   ui.loginError.hidden = true;
-  const data = new FormData(ui.loginForm);
+
+  const form = new FormData(ui.loginForm);
+
   try {
-    await apiPost("login", {
-      username: String(data.get("username") || ""),
-      password: String(data.get("password") || "")
-    });
-    ui.loginForm.reset();
+    apiBase = getApiBase();
+
+    const data = await apiRequest("/api/auth/login", "POST", {
+      username: String(form.get("username") || ""),
+      password: String(form.get("password") || "")
+    }, false);
+
+    authToken = data.token || "";
+
+    if (!authToken) {
+      throw new Error("La API no devolvió un token");
+    }
+
+    $("password").value = "";
     await showDashboard();
   } catch (error) {
     ui.loginError.textContent = error.message;
@@ -352,12 +438,23 @@ ui.loginForm.addEventListener("submit", async (event) => {
 });
 
 ui.logoutButton.addEventListener("click", async () => {
-  emergencyStopBeacon();
-  try { await apiPost("logout"); } catch (_) { /* logout local de todas formas */ }
+  try {
+    await apiRequest("/api/move", "POST", { direction: "stop", speed: 0 });
+  } catch (_) {
+    // La parada se intenta antes de cerrar la sesión.
+  }
+
+  try {
+    await apiRequest("/api/auth/logout", "POST", {});
+  } catch (_) {
+    // Si falla el logout remoto, se cierra localmente de todas formas.
+  }
+
+  authToken = "";
   showLogin();
 });
 
-ui.autonomousModeButton.addEventListener("click", () => setMode("autonomous"));
+ui.autonomousModeButton.addEventListener("click", () => setMode("automatic"));
 ui.manualModeButton.addEventListener("click", () => setMode("manual"));
 
 ui.speedSlider.addEventListener("input", () => {
@@ -370,47 +467,67 @@ for (const button of document.querySelectorAll(".move-button[data-direction]")) 
     button.setPointerCapture?.(event.pointerId);
     startMovement(button.dataset.direction, button);
   });
+
   button.addEventListener("pointerup", (event) => {
     event.preventDefault();
     stopMovement();
   });
+
   button.addEventListener("pointercancel", () => stopMovement());
 }
 
 ui.stopButton.addEventListener("click", () => stopMovement());
-window.addEventListener("pointerup", () => { if (heldDirection) stopMovement(); });
-window.addEventListener("pagehide", emergencyStopBeacon);
+window.addEventListener("pointerup", () => {
+  if (heldDirection) stopMovement();
+});
+window.addEventListener("pagehide", emergencyStop);
 document.addEventListener("visibilitychange", () => {
-  if (document.hidden && heldDirection) emergencyStopBeacon();
+  if (document.hidden && heldDirection) emergencyStop();
 });
 
 ui.playButton.addEventListener("click", async () => {
   if (!ui.songSelect.value) return;
-  try { await apiPost("audio_play", { file: ui.songSelect.value }); await refreshState(); }
-  catch (error) { showError(error.message); }
+
+  try {
+    await apiRequest("/api/audio/play", "POST", {
+      song_id: Number(ui.songSelect.value)
+    });
+    await refreshState();
+  } catch (error) {
+    showError(error.message);
+  }
 });
 
 ui.pauseButton.addEventListener("click", async () => {
-  try { await apiPost("audio_pause"); await refreshState(); }
-  catch (error) { showError(error.message); }
-});
-
-ui.audioStopButton.addEventListener("click", async () => {
-  try { await apiPost("audio_stop"); await refreshState(); }
-  catch (error) { showError(error.message); }
-});
-
-ui.volumeSlider.addEventListener("input", () => { ui.volumeValue.textContent = ui.volumeSlider.value; });
-ui.volumeSlider.addEventListener("change", async () => {
-  try { await apiPost("audio_volume", { volume: ui.volumeSlider.value }); }
-  catch (error) { showError(error.message); }
-});
-
-(async function boot() {
   try {
-    await apiGet("state");
-    await showDashboard();
-  } catch (_) {
-    showLogin();
+    await apiRequest("/api/audio/pause", "POST", {});
+    await refreshState();
+  } catch (error) {
+    showError(error.message);
   }
-})();
+});
+
+ui.audioNextButton.addEventListener("click", async () => {
+  try {
+    await apiRequest("/api/audio/next", "POST", {});
+    await refreshState();
+  } catch (error) {
+    showError(error.message);
+  }
+});
+
+ui.volumeSlider.addEventListener("input", () => {
+  ui.volumeValue.textContent = ui.volumeSlider.value;
+});
+
+ui.volumeSlider.addEventListener("change", async () => {
+  try {
+    await apiRequest("/api/audio/volume", "PUT", {
+      volume: Number(ui.volumeSlider.value)
+    });
+  } catch (error) {
+    showError(error.message);
+  }
+});
+
+showLogin();
