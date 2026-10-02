@@ -296,12 +296,12 @@ static void dispatch(int fd, const Request *r) {
     if (!strcmp(r->method,"GET") && !strcmp(r->path,"/api/sensors")) {
         double f,l,rr;
         if (robot_adapter_sensors(&f,&l,&rr)) { error_json(fd,503,"sensors_unavailable"); return; }
-        format(out,sizeof out,"{\"front_cm\":%.2f,\"left_cm\":%.2f,\"right_cm\":%.2f}",f,l,rr); respond(fd,200,out); return;
+        format(out,sizeof out,"{\"front_cm\":%.2f,\"left_cm\":null,\"right_cm\":null}",f); respond(fd,200,out); return;
     }
     if (!strcmp(r->method,"GET") && !strcmp(r->path,"/api/indicators")) {
         double f,l,rr;
-        if (robot_adapter_sensors(&f,&l,&rr)) { format(out,sizeof out,"{\"system\":\"error\",\"mode\":\"%s\",\"obstacle\":null}",robot_adapter_get_mode()); respond(fd,200,out); return; }
-        format(out,sizeof out,"{\"system\":\"functional\",\"mode\":\"%s\",\"obstacle\":%s}",robot_adapter_get_mode(),(f<20 || l<20 || rr<20)?"true":"false"); respond(fd,200,out); return;
+        if (robot_adapter_sensors(&f,&l,&rr)) { format(out,sizeof out,"{\"system\":\"functional\",\"mode\":\"%s\",\"obstacle\":null}",robot_adapter_get_mode()); respond(fd,200,out); return; }
+        format(out,sizeof out,"{\"system\":\"functional\",\"mode\":\"%s\",\"obstacle\":%s}",robot_adapter_get_mode(),(f<20)?"true":"false"); respond(fd,200,out); return;
     }
     if (!strcmp(r->method,"POST") && !strcmp(r->path,"/api/move")) {
         char direction[20]; int requested_speed;

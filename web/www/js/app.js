@@ -152,6 +152,7 @@ function stopPolling() {
 }
 
 function formatDistance(value) {
+  if (value === null || value === undefined || value === "") return "--";
   if (!Number.isFinite(Number(value)) || Number(value) < 0) {
     return "--";
   }
@@ -168,7 +169,7 @@ function songTitle(songId) {
   return song ? song.title : `Canción ${songId}`;
 }
 
-function renderState(modeData, sensors, indicators, audio) {
+function renderMode(modeData) {
   currentMode = modeData.mode || "unknown";
   const manual = currentMode === "manual";
   const automatic = currentMode === "automatic";
@@ -179,16 +180,24 @@ function renderState(modeData, sensors, indicators, audio) {
 
   ui.manualControlCard.style.opacity = manual ? "1" : ".55";
   document.querySelectorAll(".move-button").forEach((button) => {
-    button.disabled = !manual;
+    button.disabled = button.id === "stopButton" ? false : !manual;
   });
 
-  ui.sensorFront.textContent = formatDistance(sensors.front_cm);
+}
 
+function renderSensors(sensors) {
+  ui.sensorFront.textContent = formatDistance(sensors.front_cm);
+}
+
+function renderIndicators(indicators) {
   setLed(ui.ledPower, indicators.system === "functional");
   setLed(ui.ledAutonomous, indicators.mode === "automatic");
   setLed(ui.ledManual, indicators.mode === "manual");
   setLed(ui.ledObstacle, indicators.obstacle === true, true);
 
+}
+
+function renderAudio(audio) {
   if (Number.isFinite(Number(audio.volume))) {
     ui.volumeSlider.value = audio.volume;
     ui.volumeValue.textContent = audio.volume;
@@ -210,34 +219,86 @@ function renderState(modeData, sensors, indicators, audio) {
   }
 }
 
+// Each section reports its own availability; only mode controls movement.
+function sectionStatus(id, anchor, message) {
+  let element = document.getElementById(id);
+  if (!element) {
+    element = document.createElement("p");
+    element.id = id;
+    element.className = "muted";
+    element.setAttribute("role", "status");
+    anchor.closest(".card").append(element);
+  }
+  element.textContent = message;
+  element.hidden = !message;
+}
+
+let refreshingState = false;
+let refreshingMap = false;
+
 async function refreshState() {
-  if (!loggedIn) return;
-
+  if (!loggedIn || refreshingState) return;
+  refreshingState = true;
   try {
-    const results = await Promise.all([
-      apiRequest("/api/mode"),
-      apiRequest("/api/sensors"),
-      apiRequest("/api/indicators"),
-      apiRequest("/api/audio/state")
+    await Promise.allSettled([
+      apiRequest("/api/mode").then((data) => {
+        if (!loggedIn) return;
+        renderMode(data);
+        setConnection(true);
+        sectionStatus("modeStatus", ui.modeBadge, "");
+      }).catch((error) => {
+        if (!loggedIn) return;
+        renderMode({ mode: "unknown" });
+        setConnection(false);
+        sectionStatus("modeStatus", ui.modeBadge, `Modo no disponible: ${error.message}`);
+      }),
+      apiRequest("/api/sensors").then((data) => {
+        if (!loggedIn) return;
+        renderSensors(data);
+        sectionStatus("sensorStatus", ui.sensorFront, "");
+      }).catch(() => {
+        if (!loggedIn) return;
+        renderSensors({});
+        sectionStatus("sensorStatus", ui.sensorFront, "Sensor no disponible");
+      }),
+      apiRequest("/api/indicators").then((data) => {
+        if (!loggedIn) return;
+        renderIndicators(data);
+        sectionStatus("indicatorStatus", ui.ledPower, "");
+      }).catch(() => {
+        if (!loggedIn) return;
+        renderIndicators({});
+        sectionStatus("indicatorStatus", ui.ledPower, "Indicadores no disponibles");
+      }),
+      apiRequest("/api/audio/state").then((data) => {
+        if (!loggedIn) return;
+        renderAudio(data);
+        sectionStatus("audioAvailability", ui.audioStatus, "");
+      }).catch(() => {
+        if (!loggedIn) return;
+        ui.audioStatus.textContent = "Estado de audio no disponible";
+        sectionStatus("audioAvailability", ui.audioStatus, "Audio no disponible");
+      })
     ]);
-
-    renderState(results[0], results[1], results[2], results[3]);
-    setConnection(true);
-    clearError();
-  } catch (error) {
-    setConnection(false);
-    if (loggedIn) showError(error.message);
+  } finally {
+    refreshingState = false;
   }
 }
 
 async function refreshMap() {
-  if (!loggedIn) return;
-
+  if (!loggedIn || refreshingMap) return;
+  refreshingMap = true;
   try {
     const data = await apiRequest("/api/map");
+    if (!loggedIn) return;
     drawMap(data);
-  } catch (error) {
-    if (loggedIn) showError(error.message);
+    sectionStatus("mapStatus", ui.mapCanvas, "");
+  } catch (_) {
+    if (!loggedIn) return;
+    drawMap({});
+    sectionStatus("mapStatus", ui.mapCanvas, "Mapa no disponible");
+  } finally {
+    refreshingMap = false;
   }
 }
 
@@ -325,7 +386,9 @@ async function setMode(mode) {
       await stopMovement();
     }
 
-    await apiRequest("/api/mode", "PUT", { mode });
+    const data = await apiRequest("/api/mode", "PUT", { mode });
+    renderMode(data);
+    clearError();
     await refreshState();
   } catch (error) {
     showError(error.message);
