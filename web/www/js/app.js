@@ -1,8 +1,6 @@
 "use strict";
 
 
-//const API = "/cgi-bin/robot_api.cgi";
-const API = "http_//172.20.10.12:8080";
 const POLL_STATE_MS = 600;
 const POLL_MAP_MS = 1200;
 
@@ -12,6 +10,13 @@ const ui = {
   loginView: $("loginView"),
   dashboardView: $("dashboardView"),
   loginForm: $("loginForm"),
+  loginTab: $("loginTab"), registerTab: $("registerTab"),
+  authSubmit: $("authSubmit"), authDescription: $("authDescription"),
+  confirmPasswordGroup: $("confirmPasswordGroup"),
+  confirmPassword: $("confirmPassword"), sessionUser: $("sessionUser"),
+  sensorFloor: $("sensorFloor"), ledFloor: $("ledFloor"),
+  floorState: $("floorState"), floorHelp: $("floorHelp"),
+  floorResetButton: $("floorResetButton"),
   loginError: $("loginError"),
   raspberryIp: $("raspberryIp"),
   raspberryPort: $("raspberryPort"),
@@ -37,6 +42,7 @@ const ui = {
   playButton: $("playButton"),
   pauseButton: $("pauseButton"),
   audioNextButton: $("audioNextButton"),
+  audioStopButton: $("audioStopButton"),
   volumeSlider: $("volumeSlider"),
   volumeValue: $("volumeValue"),
   audioStatus: $("audioStatus"),
@@ -51,6 +57,10 @@ let heldDirection = null;
 let stateTimer = null;
 let mapTimer = null;
 let songs = [];
+let authMode = "login";
+let floorBlocked = true;
+let sessionName = "";
+let authPending = false;
 
 function getApiBase() {
   const ip = ui.raspberryIp.value.trim();
@@ -96,7 +106,9 @@ async function apiRequest(path, method = "GET", body = null, useAuth = true, kee
   }
 
   if (!response.ok) {
-    throw new Error(data.error || `Error HTTP ${response.status}`);
+    const code = data.error || `Error HTTP ${response.status}`;
+    const messages = { floor_safety_blocked: "Movimiento bloqueado por el sensor de suelo. Revisa su estado y confirma la recuperación.", invalid_credentials: "Usuario o contraseña incorrectos.", username_exists: "Ese usuario ya existe. Inicia sesión o utiliza otro nombre.", manual_mode_required: "Selecciona el modo manual para mover el robot." };
+    throw new Error(messages[code] || code);
   }
 
   return data;
@@ -120,6 +132,12 @@ function clearError() {
 function showLogin() {
   loggedIn = false;
   stopPolling();
+  heldDirection = null;
+  floorBlocked = true;
+  authToken = "";
+  sessionName = "";
+  ui.sessionUser.textContent = "";
+  document.querySelectorAll(".move-button").forEach(button => button.classList.remove("pressed"));
   ui.dashboardView.hidden = true;
   ui.loginView.hidden = false;
 }
@@ -128,6 +146,9 @@ async function showDashboard() {
   loggedIn = true;
   ui.loginView.hidden = true;
   ui.dashboardView.hidden = false;
+  ui.sessionUser.textContent = sessionName;
+  renderSensors({});
+  clearError();
 
   await Promise.allSettled([
     refreshState(),
@@ -135,7 +156,7 @@ async function showDashboard() {
     loadSongs()
   ]);
 
-  startPolling();
+  if (loggedIn) startPolling();
 }
 
 function startPolling() {
@@ -179,14 +200,51 @@ function renderMode(modeData) {
   ui.autonomousModeButton.classList.toggle("active", automatic);
 
   ui.manualControlCard.style.opacity = manual ? "1" : ".55";
-  document.querySelectorAll(".move-button").forEach((button) => {
-    button.disabled = button.id === "stopButton" ? false : !manual;
-  });
+  updateMovementButtons();
 
+}
+
+function updateMovementButtons() {
+  document.querySelectorAll(".move-button").forEach(button => {
+    button.disabled = button.id === "stopButton" ? false : currentMode !== "manual" || floorBlocked;
+  });
 }
 
 function renderSensors(sensors) {
   ui.sensorFront.textContent = formatDistance(sensors.front_cm);
+  ui.sensorFloor.textContent = formatDistance(sensors.floor_cm);
+  const hasFloorData = Object.prototype.hasOwnProperty.call(sensors, "floor_cm") &&
+    Object.prototype.hasOwnProperty.call(sensors, "floor_state");
+  const hasFrontData = Object.prototype.hasOwnProperty.call(sensors, "front_cm");
+  const state = hasFloorData ? (sensors.floor_state || "unknown") : hasFrontData ? "unsupported" : "unknown";
+  const labels = { present: "Piso presente", cliff: "Posible borde", sensor_error: "Error / sin eco", stale: "Lectura vencida", warming_up: "Confirmando piso", unconfigured: "Falta calibración", unsupported: "La API no devuelve datos de suelo", unknown: "Sin lectura de suelo" };
+  ui.floorState.textContent = labels[state] || "Estado no disponible";
+  ui.floorState.dataset.state = state;
+  floorBlocked = sensors.movement_blocked !== false;
+  const warning = !["present", "cliff", "sensor_error"].includes(state) || (state === "present" && floorBlocked);
+  const present = state === "present" && !floorBlocked;
+  const danger = state === "cliff" || state === "sensor_error";
+  setLed(ui.ledFloor, present || danger, danger);
+  ui.ledFloor.classList.toggle("warning", warning);
+  ui.ledFloor.setAttribute("aria-label", ui.floorState.textContent);
+  ui.ledFloor.title = ui.floorState.textContent;
+  const help = {
+    present: sensors.floor_latched ? "Piso confirmado. Pulsa Parar / confirmar recuperación antes de volver a mover el robot." : "Piso confirmado por el robot.",
+    cliff: "Posible desnivel. Recoloca el robot sobre piso firme antes de confirmar la recuperación.",
+    sensor_error: "El servidor no recibe un eco válido del sensor de suelo. Revisa su conexión.",
+    stale: "La lectura está vencida. Espera una lectura válida antes de mover el robot.",
+    warming_up: "Confirmando tres lecturas consecutivas de piso.",
+    unconfigured: "El sensor puede estar leyendo, pero falta configurar su umbral en el servidor.",
+    unsupported: "La respuesta de /api/sensors contiene el frontal, pero no los campos del suelo. Comprueba que esté ejecutándose el servidor actualizado.",
+    unknown: "Todavía no hay datos de suelo disponibles. Comprueba la conexión con el robot."
+  };
+  const limit = formatDistance(sensors.floor_max_cm);
+  ui.floorHelp.textContent = (help[state] || "Estado de suelo no reconocido.") + (limit !== "--" ? ` Umbral: ${limit} cm.` : "");
+  if (floorBlocked && heldDirection) {
+    heldDirection = null;
+    document.querySelectorAll(".move-button").forEach(button => button.classList.remove("pressed"));
+  }
+  updateMovementButtons();
 }
 
 function renderIndicators(indicators) {
@@ -212,14 +270,14 @@ function renderAudio(audio) {
     } else if (audio.state === "paused") {
       ui.audioStatus.textContent = `Pausado: ${title}`;
     } else {
-      ui.audioStatus.textContent = title;
+      ui.audioStatus.textContent = `Finalizado / detenido: ${title}`;
     }
   } else {
     ui.audioStatus.textContent = "Sin reproducción";
   }
 }
 
-// Each section reports its own availability; only mode controls movement.
+// Cada sección conserva su actualización independiente; modo y suelo habilitan movimiento.
 function sectionStatus(id, anchor, message) {
   let element = document.getElementById(id);
   if (!element) {
@@ -396,7 +454,7 @@ async function setMode(mode) {
 }
 
 async function startMovement(direction, button) {
-  if (currentMode !== "manual" || heldDirection) return;
+  if (!loggedIn || currentMode !== "manual" || floorBlocked || heldDirection) return;
 
   heldDirection = direction;
   button?.classList.add("pressed");
@@ -425,6 +483,7 @@ async function stopMovement(keepalive = false) {
       direction: "stop",
       speed: 0
     }, true, keepalive);
+    if (!keepalive && loggedIn) { clearError(); await refreshState(); }
   } catch (error) {
     if (!keepalive) showError(error.message);
   }
@@ -472,31 +531,65 @@ ui.testConnectionButton.addEventListener("click", async () => {
   }
 });
 
+function selectAuthMode(mode) {
+  if (authPending) return;
+  authMode = mode;
+  const registering = mode === "register";
+  ui.loginTab.classList.toggle("active", !registering);
+  ui.registerTab.classList.toggle("active", registering);
+  ui.loginTab.setAttribute("aria-pressed", String(!registering));
+  ui.registerTab.setAttribute("aria-pressed", String(registering));
+  ui.authSubmit.textContent = registering ? "Crear cuenta e iniciar sesión" : "Iniciar sesión";
+  ui.authDescription.textContent = registering ? "Crea tu cuenta para acceder al robot." : "Inicia sesión para controlar tu robot.";
+  ui.confirmPasswordGroup.hidden = !registering;
+  ui.confirmPassword.required = registering;
+  ui.confirmPassword.value = "";
+  $("password").autocomplete = registering ? "new-password" : "current-password";
+  $("password").minLength = registering ? 12 : 1;
+  $("username").minLength = registering ? 3 : 1;
+  $("username").maxLength = 32;
+  $("password").maxLength = 120;
+  ui.loginError.hidden = true;
+}
+ui.loginTab.addEventListener("click", () => selectAuthMode("login"));
+ui.registerTab.addEventListener("click", () => selectAuthMode("register"));
+
 ui.loginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
+  if (authPending) return;
   ui.loginError.hidden = true;
-
   const form = new FormData(ui.loginForm);
-
+  const credentials = { username: String(form.get("username") || ""), password: String(form.get("password") || "") };
+  if (authMode === "register" && credentials.password !== ui.confirmPassword.value) {
+    ui.loginError.textContent = "Las contraseñas no coinciden."; ui.loginError.hidden = false; return;
+  }
+  if (authMode === "register" && !/^[A-Za-z0-9_]{3,32}$/.test(credentials.username)) {
+    ui.loginError.textContent = "El usuario debe tener de 3 a 32 letras, números o guiones bajos."; ui.loginError.hidden = false; return;
+  }
+  authPending = true;
+  ui.authSubmit.disabled = true; ui.loginTab.disabled = true; ui.registerTab.disabled = true;
+  ui.authSubmit.textContent = "Conectando…";
+  let created = false;
   try {
     apiBase = getApiBase();
-
-    const data = await apiRequest("/api/auth/login", "POST", {
-      username: String(form.get("username") || ""),
-      password: String(form.get("password") || "")
-    }, false);
-
+    if (authMode === "register") { await apiRequest("/api/auth/register", "POST", credentials, false); created = true; }
+    const data = await apiRequest("/api/auth/login", "POST", credentials, false);
     authToken = data.token || "";
-
-    if (!authToken) {
-      throw new Error("La API no devolvió un token");
-    }
-
-    $("password").value = "";
+    if (!authToken) throw new Error("La API no devolvió un token");
+    sessionName = credentials.username;
+    authMode = "login";
+    $("password").value = ""; ui.confirmPassword.value = "";
     await showDashboard();
   } catch (error) {
-    ui.loginError.textContent = error.message;
+    ui.loginError.textContent = created ? `Cuenta creada. Vuelve a iniciar sesión: ${error.message}` : error.message;
     ui.loginError.hidden = false;
+    if (created) authMode = "login";
+  } finally {
+    authPending = false;
+    ui.authSubmit.disabled = false; ui.loginTab.disabled = false; ui.registerTab.disabled = false;
+    const message = ui.loginError.textContent, hasError = !ui.loginError.hidden;
+    selectAuthMode(authMode);
+    if (hasError) { ui.loginError.textContent = message; ui.loginError.hidden = false; }
   }
 });
 
@@ -540,6 +633,7 @@ for (const button of document.querySelectorAll(".move-button[data-direction]")) 
 }
 
 ui.stopButton.addEventListener("click", () => stopMovement());
+ui.floorResetButton.addEventListener("click", () => stopMovement());
 window.addEventListener("pointerup", () => {
   if (heldDirection) stopMovement();
 });
@@ -570,6 +664,11 @@ ui.pauseButton.addEventListener("click", async () => {
   }
 });
 
+ui.audioStopButton.addEventListener("click", async () => {
+  try { await apiRequest("/api/audio/stop", "POST", {}); await refreshState(); }
+  catch (error) { showError(error.message); }
+});
+
 ui.audioNextButton.addEventListener("click", async () => {
   try {
     await apiRequest("/api/audio/next", "POST", {});
@@ -593,4 +692,5 @@ ui.volumeSlider.addEventListener("change", async () => {
   }
 });
 
+selectAuthMode("login");
 showLogin();

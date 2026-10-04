@@ -1,8 +1,8 @@
 #ifndef CONTROL_LOGIC_H
 #define CONTROL_LOGIC_H
 
-/* El servidor actual atiende peticiones en serie. Agregar sincronizacion
- * antes de usar estas funciones desde varios hilos. */
+/* El adaptador serializa estas funciones con controller_lock.
+ * No llamarlas directamente desde otros hilos. */
 enum { CONTROL_OK = 0, CONTROL_ERROR = -1,
        CONTROL_INVALID_ARGUMENT = -2, CONTROL_MANUAL_REQUIRED = -3 };
 int control_init(void);

@@ -71,6 +71,9 @@ int robot_stop(void);
 
 float robot_get_front_distance(void);
 
+/* Centimetros o ROBOT_SENSOR_ERROR; nunca convertir un error en piso presente. */
+float robot_get_floor_distance(void);
+
 
 /* =========================================================
  * LEDs
@@ -92,6 +95,8 @@ int robot_audio_pause(void);
 int robot_audio_stop(void);
 
 int robot_audio_set_volume(int volume);
+/* Consultar desde el mismo hilo que controla el audio. */
+const char *robot_audio_get_state(void);
 
 
 #endif
