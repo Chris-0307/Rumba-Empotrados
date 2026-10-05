@@ -15,6 +15,7 @@ int robot_led_set(RobotLed led, int value) {
     if (fail_led) return ROBOT_ERROR;
     leds[led]=value; return ROBOT_OK;
 }
+int robot_set_motor_speeds(int left,int right) { (void)left;(void)right;moves++;return fail_move?ROBOT_ERROR:ROBOT_OK; }
 int robot_move_forward(int speed) { (void)speed; moves++; return fail_move ? ROBOT_ERROR : ROBOT_OK; }
 int robot_move_backward(int speed) { return robot_move_forward(speed); }
 int robot_turn_left(int speed) { return robot_move_forward(speed); }

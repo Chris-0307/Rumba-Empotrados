@@ -1,5 +1,6 @@
 #define _POSIX_C_SOURCE 200809L
 #include "robot_adapter.h"
+#include "audio_catalog.h"
 #include <arpa/inet.h>
 #include <errno.h>
 #include <netinet/in.h>
@@ -29,7 +30,7 @@
 static sqlite3 *db;
 static volatile sig_atomic_t stopping;
 static void request_shutdown(int signum) { (void)signum; stopping = 1; }
-static int speed = 0, volume = 50, current_song = 0;
+static int speed = 0, volume = 100, current_song = 0;
 static const char *audio_state = "stopped";
 static const char *allowed_origin;
 static char request_origin[256];
@@ -103,6 +104,8 @@ static int field(const char *body, const char *wanted, char *out, size_t cap) {
         }
         size_t len = (size_t)(p - value);
         if (quoted) p++;
+        const char *tail=p;while (*tail==' ' || *tail=='\t' || *tail=='\r' || *tail=='\n') tail++;
+        if (*tail!=',' && *tail!='}') return -1;
         if (strlen(wanted) == keylen && memcmp(start, wanted, keylen) == 0) {
             if (!len || len >= cap) return -1;
             memcpy(out, value, len); out[len] = 0; return 0;
@@ -284,19 +287,51 @@ static void dispatch(int fd, const Request *r) {
         } else error_json(fd,404,"user_not_found");
         sqlite3_finalize(s); return;
     }
+    if (!strcmp(r->method,"GET") && !strcmp(r->path,"/api/suction")) {
+        if (robot_adapter_suction_json(out,sizeof out)) error_json(fd,503,"suction_unavailable");
+        else respond(fd,200,out);
+        return;
+    }
+    if (!strcmp(r->method,"PUT") && !strcmp(r->path,"/api/suction")) {
+        char action[8];
+        if (field(r->body,"action",action,sizeof action) || (strcmp(action,"on") && strcmp(action,"off"))) {
+            error_json(fd,400,"invalid_suction_action");return;
+        }
+        int suction_result=robot_adapter_suction_set(!strcmp(action,"on"));
+        if (suction_result==-5) {error_json(fd,409,"cycle_completed");return;}
+        if (suction_result) {error_json(fd,503,"suction_unavailable");return;}
+        if (robot_adapter_suction_json(out,sizeof out)) error_json(fd,503,"suction_unavailable");
+        else respond(fd,200,out);
+        return;
+    }
     if (!strcmp(r->method,"GET") && !strcmp(r->path,"/api/mode")) {
-        format(out,sizeof out,"{\"mode\":\"%s\"}",robot_adapter_get_mode()); respond(fd,200,out); return;
+        if (robot_adapter_mode_json(out,sizeof out)) { error_json(fd,503,"controller_unavailable"); return; }
+        respond(fd,200,out); return;
     }
     if (!strcmp(r->method,"PUT") && !strcmp(r->path,"/api/mode")) {
         char value[16];
         if (field(r->body,"mode",value,sizeof value) || (strcmp(value,"manual") && strcmp(value,"automatic"))) { error_json(fd,400,"invalid_mode"); return; }
-        if (robot_adapter_mode(value)) { error_json(fd,503,"controller_unavailable"); return; }
-        speed=0; format(out,sizeof out,"{\"mode\":\"%s\"}",robot_adapter_get_mode()); respond(fd,200,out); return;
+        int duration=0;
+        if (strstr(r->body,"\"duration_seconds\"") && integer_field(r->body,"duration_seconds",&duration,0,86400)) {
+            error_json(fd,400,"invalid_duration_seconds");return;
+        }
+        if (robot_adapter_mode_timed(value,duration)) { error_json(fd,503,"controller_unavailable"); return; }
+        speed=0; if (robot_adapter_mode_json(out,sizeof out)) { error_json(fd,503,"controller_unavailable"); return; }
+        respond(fd,200,out); return;
+    }
+    if (!strcmp(r->path,"/api/motors") && (!strcmp(r->method,"GET") || !strcmp(r->method,"PUT"))) {
+        if (!strcmp(r->method,"PUT")) {
+            int left,right;
+            if (integer_field(r->body,"left_speed",&left,0,100) || integer_field(r->body,"right_speed",&right,0,100)) {error_json(fd,400,"invalid_motor_speeds");return;}
+            if (robot_adapter_motors_set(left,right)) {error_json(fd,503,"motors_unavailable");return;}
+        }
+        if (robot_adapter_motors_json(out,sizeof out)) error_json(fd,503,"motors_unavailable");
+        else respond(fd,200,out);
+        return;
     }
     if (!strcmp(r->method,"GET") && !strcmp(r->path,"/api/sensors")) {
-        double f,l,rr;
-        if (robot_adapter_sensors(&f,&l,&rr)) { error_json(fd,503,"sensors_unavailable"); return; }
-        format(out,sizeof out,"{\"front_cm\":%.2f,\"left_cm\":null,\"right_cm\":null}",f); respond(fd,200,out); return;
+        if (robot_adapter_sensor_json(out,sizeof out)) { error_json(fd,503,"sensors_unavailable"); return; }
+        respond(fd,200,out); return;
     }
     if (!strcmp(r->method,"GET") && !strcmp(r->path,"/api/indicators")) {
         double f,l,rr;
@@ -304,80 +339,64 @@ static void dispatch(int fd, const Request *r) {
         format(out,sizeof out,"{\"system\":\"functional\",\"mode\":\"%s\",\"obstacle\":%s}",robot_adapter_get_mode(),(f<20)?"true":"false"); respond(fd,200,out); return;
     }
     if (!strcmp(r->method,"POST") && !strcmp(r->path,"/api/move")) {
-        char direction[20]; int requested_speed;
+        char direction[20]; int requested_speed=0;
         if (field(r->body,"direction",direction,sizeof direction) ||
             (strcmp(direction,"forward") && strcmp(direction,"backward") && strcmp(direction,"left") && strcmp(direction,"right") && strcmp(direction,"stop"))) { error_json(fd,400,"invalid_direction"); return; }
-        if (integer_field(r->body,"speed",&requested_speed,0,100)) { error_json(fd,400,"invalid_speed"); return; }
-        int move_result=robot_adapter_move(direction,requested_speed);
+        int legacy=strstr(r->body,"\"speed\"")!=NULL;
+        if (legacy && integer_field(r->body,"speed",&requested_speed,0,100)) {error_json(fd,400,"invalid_speed");return;}
+        int move_result=legacy?robot_adapter_move(direction,requested_speed):robot_adapter_move_configured(direction);
+        if (move_result==-4) { error_json(fd,409,"floor_safety_blocked"); return; }
         if (move_result==-3) { error_json(fd,409,"manual_mode_required"); return; }
         if (move_result) { error_json(fd,503,"motors_unavailable"); return; }
         speed=strcmp(direction,"stop") ? requested_speed : 0;
-        format(out,sizeof out,"{\"direction\":\"%s\",\"speed\":%d}",direction,speed); respond(fd,200,out); return;
+        if (legacy) format(out,sizeof out,"{\"direction\":\"%s\",\"speed\":%d}",direction,speed);
+        else if (robot_adapter_motors_json(out,sizeof out)) {error_json(fd,503,"motors_unavailable");return;}
+        respond(fd,200,out);return;
     }
     if (!strcmp(r->method,"GET") && !strcmp(r->path,"/api/map")) {
         if (robot_adapter_map(out,sizeof out)) error_json(fd,503,"map_unavailable"); else respond(fd,200,out); return;
     }
     if (!strcmp(r->method,"GET") && !strcmp(r->path,"/api/audio/songs")) {
-        sqlite3_stmt *s=prepare("SELECT id,title FROM songs ORDER BY id");
-        if (!s) { error_json(fd,500,"database_error"); return; }
-        size_t used=0; out[used++]='[';
-        int row, failed=0;
-        while ((row=sqlite3_step(s))==SQLITE_ROW) {
-            const unsigned char *title=sqlite3_column_text(s,1); int id=sqlite3_column_int(s,0);
-            /* Escapar títulos que vienen de la base de datos. */
-            int n=snprintf(out+used,sizeof out-used,"%s{\"id\":%d,\"title\":\"",used>1?",":"",id);
-            if (n<0 || (size_t)n>=sizeof out-used) { failed=1; break; } used+=(size_t)n;
-            for (const unsigned char *p=title; p && *p; p++) {
-                if (used+8>=sizeof out) { failed=1; break; }
-                if (*p=='"' || *p=='\\') out[used++]='\\';
-                if (*p<32) { n=snprintf(out+used,sizeof out-used,"\\u%04x",*p); used+=(size_t)n; }
-                else out[used++]=(char)*p;
-            }
-            if (failed) break;
-            out[used++]='"'; out[used++]='}';
-        }
-        sqlite3_finalize(s);
-        if (failed || row!=SQLITE_DONE) { error_json(fd,500,"playlist_error"); return; }
-        out[used++]=']'; out[used]=0; respond(fd,200,out); return;
+        if (audio_catalog_playlist(out,sizeof out)) error_json(fd,503,"playlist_unavailable_or_over_60MB");
+        else respond(fd,200,out);
+        return;
     }
     if (!strcmp(r->method,"GET") && !strcmp(r->path,"/api/audio/state")) {
-        format(out,sizeof out,"{\"state\":\"%s\",\"song_id\":%d,\"volume\":%d}",audio_state,current_song,volume); respond(fd,200,out); return;
+        const char *actual=robot_adapter_audio_state();
+        if (actual) audio_state=actual;
+        format(out,sizeof out,"{\"state\":\"%s\",\"song_id\":%d,\"volume\":%d}",audio_state,current_song,volume);
+        respond(fd,200,out);return;
     }
     if (!strcmp(r->method,"PUT") && !strcmp(r->path,"/api/audio/volume")) {
-        int n; if (integer_field(r->body,"volume",&n,0,100)) { error_json(fd,400,"invalid_volume"); return; }
-        if (robot_adapter_audio("volume",current_song,n)) { error_json(fd,503,"audio_unavailable"); return; }
-        volume=n; format(out,sizeof out,"{\"volume\":%d}",volume); respond(fd,200,out); return;
+        int n;if(integer_field(r->body,"volume",&n,0,100)) { error_json(fd,400,"invalid_volume");return; }
+        if(robot_adapter_audio("volume",current_song,n)) { error_json(fd,503,"audio_unavailable");return; }
+        volume=n;format(out,sizeof out,"{\"volume\":%d}",volume);respond(fd,200,out);return;
     }
     if (!strcmp(r->method,"POST") && !strcmp(r->path,"/api/audio/play")) {
-        int id; if (integer_field(r->body,"song_id",&id,1,2147483647)) { error_json(fd,400,"invalid_song_id"); return; }
-        sqlite3_stmt *s=prepare("SELECT 1 FROM songs WHERE id=?");
-        if (!s) { error_json(fd,500,"database_error"); return; }
-        sqlite3_bind_int(s,1,id); int exists=sqlite3_step(s)==SQLITE_ROW; sqlite3_finalize(s);
-        if (!exists) { error_json(fd,404,"song_not_found"); return; }
-        if (robot_adapter_audio("play",id,volume)) { error_json(fd,503,"audio_unavailable"); return; }
-        current_song=id; audio_state="playing";
-        format(out,sizeof out,"{\"state\":\"playing\",\"song_id\":%d}",id); respond(fd,200,out); return;
+        int id;char path[1024];
+        if(integer_field(r->body,"song_id",&id,1,3)) { error_json(fd,400,"invalid_song_id");return; }
+        if(audio_catalog_path(id,path,sizeof path)) { error_json(fd,404,"song_unavailable_or_over_60MB");return; }
+        if(robot_adapter_audio("play",id,volume)) { error_json(fd,503,"audio_unavailable");return; }
+        current_song=id;audio_state="playing";
+        format(out,sizeof out,"{\"state\":\"playing\",\"song_id\":%d}",id);respond(fd,200,out);return;
+    }
+    if (!strcmp(r->method,"POST") && !strcmp(r->path,"/api/audio/stop")) {
+        if(robot_adapter_audio("stop",current_song,volume)) { error_json(fd,503,"audio_unavailable");return; }
+        current_song=0;audio_state="stopped";respond(fd,200,"{\"state\":\"stopped\",\"song_id\":0}");return;
     }
     if (!strcmp(r->method,"POST") && (!strcmp(r->path,"/api/audio/pause") || !strcmp(r->path,"/api/audio/next"))) {
         int next=current_song;
-        if (!strcmp(r->path,"/api/audio/next")) {
-            sqlite3_stmt *s=prepare("SELECT id FROM songs WHERE id>? ORDER BY id LIMIT 1");
-            if (!s) { error_json(fd,500,"database_error"); return; }
-            sqlite3_bind_int(s,1,current_song);
-            if (sqlite3_step(s)==SQLITE_ROW) next=sqlite3_column_int(s,0);
-            sqlite3_finalize(s);
-            if (next==current_song) {
-                s=prepare("SELECT id FROM songs ORDER BY id LIMIT 1");
-                if (!s) { error_json(fd,500,"database_error"); return; }
-                if (sqlite3_step(s)==SQLITE_ROW) next=sqlite3_column_int(s,0);
-                sqlite3_finalize(s);
-            }
-            if (!next) { error_json(fd,404,"playlist_empty"); return; }
+        const char *action="pause";
+        if (!strcmp(r->path,"/api/audio/next")) { next=audio_catalog_next(current_song);action="play"; }
+        else {
+            const char *actual=robot_adapter_audio_state();
+            if(actual) audio_state=actual;
+            if(!strcmp(audio_state,"stopped")) { error_json(fd,409,"audio_not_playing");return; }
         }
-        const char *action=!strcmp(r->path,"/api/audio/next") ? "play" : "pause";
-        if (robot_adapter_audio(action,next,volume)) { error_json(fd,503,"audio_unavailable"); return; }
-        current_song=next; audio_state=!strcmp(action,"play") ? "playing" : "paused";
-        format(out,sizeof out,"{\"state\":\"%s\",\"song_id\":%d}",audio_state,current_song); respond(fd,200,out); return;
+        if(next<1) { error_json(fd,404,"playlist_empty");return; }
+        if(robot_adapter_audio(action,next,volume)) { error_json(fd,503,"audio_unavailable");return; }
+        current_song=next;audio_state=!strcmp(action,"play")?"playing":"paused";
+        format(out,sizeof out,"{\"state\":\"%s\",\"song_id\":%d}",audio_state,current_song);respond(fd,200,out);return;
     }
     error_json(fd,404,"not_found");
 }

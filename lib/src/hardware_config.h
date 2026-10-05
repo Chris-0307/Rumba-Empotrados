@@ -7,6 +7,9 @@
  */
 #define ROBOT_GPIO_CHIP "/dev/gpiochip0"
 
+/* Aspiracion: BCM13, pin fisico 33; salida activa alta hacia BJT. */
+#define GPIO_SUCTION 13U
+
 /* =========================
  * LEDs
  * ========================= */
@@ -53,6 +56,11 @@
  */
 #define GPIO_HCSR04_TRIGGER 24U
 #define GPIO_HCSR04_ECHO    25U
+
+/* Segundo HC-SR04, orientado al suelo; ECHO requiere divisor. */
+#define GPIO_HCSR04_FLOOR_TRIGGER 26U
+#define GPIO_HCSR04_FLOOR_ECHO    21U
+#define HCSR04_TRIGGER_GAP_NS 65000000ULL
 
 #define HCSR04_TIMEOUT_US 30000U
 #define HCSR04_MIN_DISTANCE_CM 2.0f

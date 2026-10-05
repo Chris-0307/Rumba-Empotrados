@@ -1,0 +1,8 @@
+/home/mano-006/proyectos/Empotrados/Rumba-Empotrados/build-arm-floor-lib/CMakeFiles/robot.dir
+/home/mano-006/proyectos/Empotrados/Rumba-Empotrados/build-arm-floor-lib/CMakeFiles/robot_sensor_test.dir
+/home/mano-006/proyectos/Empotrados/Rumba-Empotrados/build-arm-floor-lib/CMakeFiles/edit_cache.dir
+/home/mano-006/proyectos/Empotrados/Rumba-Empotrados/build-arm-floor-lib/CMakeFiles/rebuild_cache.dir
+/home/mano-006/proyectos/Empotrados/Rumba-Empotrados/build-arm-floor-lib/CMakeFiles/list_install_components.dir
+/home/mano-006/proyectos/Empotrados/Rumba-Empotrados/build-arm-floor-lib/CMakeFiles/install.dir
+/home/mano-006/proyectos/Empotrados/Rumba-Empotrados/build-arm-floor-lib/CMakeFiles/install/local.dir
+/home/mano-006/proyectos/Empotrados/Rumba-Empotrados/build-arm-floor-lib/CMakeFiles/install/strip.dir

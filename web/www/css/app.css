@@ -69,7 +69,7 @@ button:disabled { opacity: .45; cursor: not-allowed; }
 .full { width: 100%; margin-top: 18px; }
 .compact { min-height: 38px; padding: 7px 12px; }
 
-.dashboard { display: grid; gap: 14px; }
+.dashboard { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; width: 100%; min-width: 0; }
 .topbar {
   display: flex;
   align-items: center;
@@ -125,7 +125,7 @@ button:disabled { opacity: .45; cursor: not-allowed; }
 .move-button.down { grid-area: down; }
 
 .grid { display: grid; gap: 14px; }
-.two-columns { grid-template-columns: 1fr 1fr; }
+.two-columns { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .sensor-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .sensor-grid.single-sensor { grid-template-columns: 1fr; }
 .metric { background: #0f172a; border-radius: 12px; padding: 12px 8px; text-align: center; }
@@ -163,3 +163,64 @@ button:disabled { opacity: .45; cursor: not-allowed; }
   .audio-controls .primary { grid-column: 1 / -1; }
   .section-heading { align-items: center; }
 }
+
+/* Ocultar realmente las vistas incluso si una clase utiliza display:grid. */
+[hidden] { display: none !important; }
+button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible { outline: 3px solid #60a5fa; outline-offset: 3px; }
+.login-card { width: min(100%, 450px); padding: 32px; background: linear-gradient(145deg, #18263a, #101827); }
+.brand-mark { width: 48px; height: 48px; display: grid; place-items: center; border-radius: 15px; background: #2563eb; font-size: 26px; font-weight: 800; margin-bottom: 22px; }
+.eyebrow { font-size: .68rem; font-weight: 800; letter-spacing: .14em; color: #7baaff; margin-bottom: 7px; }
+.login-card h1 { font-size: 1.7rem; margin: 0 0 8px; }
+.auth-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border: 1px solid #334155; border-radius: 13px; margin: 24px 0 20px; background: #0b1220; }
+.auth-tabs button { background: transparent; color: #94a3b8; min-height: 40px; font-size: .9rem; }
+.auth-tabs button.active { background: #263d5c; color: #f8fafc; }
+.connection-settings { border-top: 1px solid #334155; margin-top: 24px; padding-top: 16px; }
+.connection-settings summary { color: #a9b9ce; cursor: pointer; font-size: .88rem; }
+.connection-settings p { margin: 12px 0 0; font-size: .85rem; }
+.session-bar { background: #111d30; border: 1px solid #2c3e58; border-radius: 16px; padding: 18px 20px; }
+.session-user { font-size: .9rem; color: #cbd5e1; overflow-wrap: anywhere; }
+/* La lectura de suelo utiliza el mismo .metric que el sensor frontal. */
+.sensor-state { margin: 12px 0 6px; font-size: .88rem; font-weight: 700; }
+.sensor-help { margin: 0 0 12px; font-size: .82rem; line-height: 1.5; }
+#floorState[data-state="present"] { color: #86efac; }
+#floorState[data-state="cliff"], #floorState[data-state="sensor_error"] { color: #fca5a5; }
+#floorState[data-state="warming_up"], #floorState[data-state="unconfigured"], #floorState[data-state="stale"], #floorState[data-state="unsupported"], #floorState[data-state="unknown"] { color: #fde68a; }
+.led.warning { background: #f59e0b; box-shadow: 0 0 0 4px rgba(245,158,11,.12); }
+@media(max-width: 600px) {
+  .login-card { padding: 24px 20px; }
+  .session-bar { align-items: flex-start; flex-wrap: wrap; }
+  .topbar-actions { width: 100%; }
+  .topbar-actions button { margin-left: auto; }
+}
+
+/* Centrado del contenedor y limites de ancho de los elementos del panel. */
+html { width: 100%; }
+body { display: block; width: 100%; }
+.app-shell {
+  display: block;
+  position: relative;
+  left: auto;
+  right: auto;
+  transform: none;
+  width: 100%;
+  max-width: 980px;
+  min-width: 0;
+  margin-left: auto;
+  margin-right: auto;
+}
+.dashboard > *, .grid > *, .card, .map-wrap { min-width: 0; max-width: 100%; }
+.topbar { flex-wrap: wrap; }
+.topbar > * { min-width: 0; }
+.topbar-actions { flex-wrap: wrap; }
+#mapCanvas { max-width: 100%; }
+
+.navigation-panel { margin-top: 16px; border-top: 1px solid #334155; padding-top: 16px; }
+.navigation-panel p { margin-bottom: 8px; font-size: .9rem; }
+.navigation-panel small { display: block; margin-top: 10px; }
+
+.cycle-controls { display: grid; gap: .6rem; margin-top: 1rem; }
+.cycle-controls input[type="number"] { width: min(100%, 220px); padding: .6rem; }
+
+.motor-sliders { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5rem; }
+.motor-sliders .speed-control { display: flex; justify-content: space-between; }
+@media (max-width: 600px) { .motor-sliders { grid-template-columns: 1fr; } }

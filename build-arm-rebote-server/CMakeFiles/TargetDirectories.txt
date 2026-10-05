@@ -1,0 +1,3 @@
+/home/mano-006/proyectos/Empotrados/Rumba-Empotrados/build-arm-rebote-server/CMakeFiles/robot_server.dir
+/home/mano-006/proyectos/Empotrados/Rumba-Empotrados/build-arm-rebote-server/CMakeFiles/edit_cache.dir
+/home/mano-006/proyectos/Empotrados/Rumba-Empotrados/build-arm-rebote-server/CMakeFiles/rebuild_cache.dir
