@@ -213,3 +213,14 @@ body { display: block; width: 100%; }
 .topbar > * { min-width: 0; }
 .topbar-actions { flex-wrap: wrap; }
 #mapCanvas { max-width: 100%; }
+
+.navigation-panel { margin-top: 16px; border-top: 1px solid #334155; padding-top: 16px; }
+.navigation-panel p { margin-bottom: 8px; font-size: .9rem; }
+.navigation-panel small { display: block; margin-top: 10px; }
+
+.cycle-controls { display: grid; gap: .6rem; margin-top: 1rem; }
+.cycle-controls input[type="number"] { width: min(100%, 220px); padding: .6rem; }
+
+.motor-sliders { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5rem; }
+.motor-sliders .speed-control { display: flex; justify-content: space-between; }
+@media (max-width: 600px) { .motor-sliders { grid-template-columns: 1fr; } }

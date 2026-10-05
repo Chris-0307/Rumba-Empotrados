@@ -61,6 +61,11 @@ int robot_turn_right(int speed);
 
 int robot_stop(void);
 
+/* Aspiracion independiente de los motores de desplazamiento. */
+int robot_suction_set(int enabled);
+/* 0 apagada, 1 encendida; negativo si no disponible. Estado de GPIO, no RPM. */
+int robot_suction_get(void);
+
 
 /* =========================================================
  * Sensores
@@ -87,6 +92,10 @@ int robot_led_set(RobotLed led, int state);
  * Audio
  * =========================================================
  */
+
+typedef enum { ROBOT_ALERT_START=0, ROBOT_ALERT_MANUAL, ROBOT_ALERT_AUTOMATIC, ROBOT_ALERT_OBSTACLE, ROBOT_ALERT_CYCLE_END } RobotAudioAlert;
+/* Encola un aviso; no espera a la reproduccion. Fallo de aviso no afecta movimiento. */
+int robot_audio_alert(RobotAudioAlert alert);
 
 int robot_audio_play(const char *filename);
 

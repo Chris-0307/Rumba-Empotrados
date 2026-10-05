@@ -10,5 +10,8 @@ void control_cleanup(void);
 int control_set_mode(const char *mode);
 const char *control_get_mode(void);
 int control_move(const char *direction, int speed);
+int control_move_pair(const char *direction,int left,int right,int automatic);
 int control_stop(void);
+/* Solo modo automatico; el adaptador verifica sensores y serializa acceso. */
+int control_auto_move(const char *direction, int speed);
 #endif

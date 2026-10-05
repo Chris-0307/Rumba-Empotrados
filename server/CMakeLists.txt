@@ -13,6 +13,7 @@ add_executable(robot_server
     src/map_estimate.c
     src/audio_catalog.c
     src/floor_guard.c
+    src/auto_navigation.c
 )
 if(ROBOT_WITH_HARDWARE)
     find_path(ROBOT_INCLUDE_DIR robot_hw.h REQUIRED)

@@ -7,6 +7,9 @@
  */
 #define ROBOT_GPIO_CHIP "/dev/gpiochip0"
 
+/* Aspiracion: BCM13, pin fisico 33; salida activa alta hacia BJT. */
+#define GPIO_SUCTION 13U
+
 /* =========================
  * LEDs
  * ========================= */

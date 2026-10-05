@@ -23,6 +23,8 @@ add_library(robot SHARED
 
     src/leds.c
     src/audio.c
+    src/alerts.c
+    src/suction.c
 )
 
 target_include_directories(robot
@@ -53,3 +55,5 @@ install(
 
 add_executable(robot_sensor_test tools/robot_sensor_test.c)
 target_link_libraries(robot_sensor_test PRIVATE robot)
+
+install(DIRECTORY sounds/ DESTINATION share/robot/sounds FILES_MATCHING PATTERN "*.wav")

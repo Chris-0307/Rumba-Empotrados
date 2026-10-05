@@ -1,0 +1,31 @@
+CMakeFiles/robot.dir/src/suction.c.o: \
+ /home/mano-006/proyectos/Empotrados/Rumba-Empotrados/lib/src/suction.c \
+ /opt/poky/5.0.19-rumba/sysroots/cortexa7t2hf-neon-vfpv4-poky-linux-gnueabi/usr/include/stdc-predef.h \
+ /home/mano-006/proyectos/Empotrados/Rumba-Empotrados/lib/include/robot_hw.h \
+ /home/mano-006/proyectos/Empotrados/Rumba-Empotrados/lib/src/hardware_config.h \
+ /home/mano-006/proyectos/Empotrados/Rumba-Empotrados/lib/src/suction.h \
+ /opt/poky/5.0.19-rumba/sysroots/cortexa7t2hf-neon-vfpv4-poky-linux-gnueabi/usr/include/gpiod.h \
+ /opt/poky/5.0.19-rumba/sysroots/x86_64-pokysdk-linux/usr/lib/arm-poky-linux-gnueabi/gcc/arm-poky-linux-gnueabi/13.4.0/include/stdbool.h \
+ /opt/poky/5.0.19-rumba/sysroots/x86_64-pokysdk-linux/usr/lib/arm-poky-linux-gnueabi/gcc/arm-poky-linux-gnueabi/13.4.0/include/stddef.h \
+ /opt/poky/5.0.19-rumba/sysroots/x86_64-pokysdk-linux/usr/lib/arm-poky-linux-gnueabi/gcc/arm-poky-linux-gnueabi/13.4.0/include/stdint.h \
+ /opt/poky/5.0.19-rumba/sysroots/cortexa7t2hf-neon-vfpv4-poky-linux-gnueabi/usr/include/stdint.h \
+ /opt/poky/5.0.19-rumba/sysroots/cortexa7t2hf-neon-vfpv4-poky-linux-gnueabi/usr/include/bits/libc-header-start.h \
+ /opt/poky/5.0.19-rumba/sysroots/cortexa7t2hf-neon-vfpv4-poky-linux-gnueabi/usr/include/features.h \
+ /opt/poky/5.0.19-rumba/sysroots/cortexa7t2hf-neon-vfpv4-poky-linux-gnueabi/usr/include/features-time64.h \
+ /opt/poky/5.0.19-rumba/sysroots/cortexa7t2hf-neon-vfpv4-poky-linux-gnueabi/usr/include/bits/wordsize.h \
+ /opt/poky/5.0.19-rumba/sysroots/cortexa7t2hf-neon-vfpv4-poky-linux-gnueabi/usr/include/bits/timesize.h \
+ /opt/poky/5.0.19-rumba/sysroots/cortexa7t2hf-neon-vfpv4-poky-linux-gnueabi/usr/include/bits/timesize-32.h \
+ /opt/poky/5.0.19-rumba/sysroots/cortexa7t2hf-neon-vfpv4-poky-linux-gnueabi/usr/include/sys/cdefs.h \
+ /opt/poky/5.0.19-rumba/sysroots/cortexa7t2hf-neon-vfpv4-poky-linux-gnueabi/usr/include/bits/long-double.h \
+ /opt/poky/5.0.19-rumba/sysroots/cortexa7t2hf-neon-vfpv4-poky-linux-gnueabi/usr/include/bits/long-double-32.h \
+ /opt/poky/5.0.19-rumba/sysroots/cortexa7t2hf-neon-vfpv4-poky-linux-gnueabi/usr/include/gnu/stubs.h \
+ /opt/poky/5.0.19-rumba/sysroots/cortexa7t2hf-neon-vfpv4-poky-linux-gnueabi/usr/include/gnu/stubs-32.h \
+ /opt/poky/5.0.19-rumba/sysroots/cortexa7t2hf-neon-vfpv4-poky-linux-gnueabi/usr/include/gnu/stubs-hard.h \
+ /opt/poky/5.0.19-rumba/sysroots/cortexa7t2hf-neon-vfpv4-poky-linux-gnueabi/usr/include/bits/types.h \
+ /opt/poky/5.0.19-rumba/sysroots/cortexa7t2hf-neon-vfpv4-poky-linux-gnueabi/usr/include/bits/typesizes.h \
+ /opt/poky/5.0.19-rumba/sysroots/cortexa7t2hf-neon-vfpv4-poky-linux-gnueabi/usr/include/bits/typesizes-32.h \
+ /opt/poky/5.0.19-rumba/sysroots/cortexa7t2hf-neon-vfpv4-poky-linux-gnueabi/usr/include/bits/time64.h \
+ /opt/poky/5.0.19-rumba/sysroots/cortexa7t2hf-neon-vfpv4-poky-linux-gnueabi/usr/include/bits/wchar.h \
+ /opt/poky/5.0.19-rumba/sysroots/cortexa7t2hf-neon-vfpv4-poky-linux-gnueabi/usr/include/bits/stdint-intn.h \
+ /opt/poky/5.0.19-rumba/sysroots/cortexa7t2hf-neon-vfpv4-poky-linux-gnueabi/usr/include/bits/stdint-uintn.h \
+ /opt/poky/5.0.19-rumba/sysroots/cortexa7t2hf-neon-vfpv4-poky-linux-gnueabi/usr/include/bits/stdint-least.h

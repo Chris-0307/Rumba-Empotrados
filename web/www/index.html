@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#111827">
   <title>RumBa Control</title>
-  <link rel="stylesheet" href="css/app.css?v=20261004-layout3">
+  <link rel="stylesheet" href="css/app.css?v=20261004-motores1">
 </head>
 
 <body>
@@ -81,6 +81,31 @@
           <button id="autonomousModeButton" type="button">Autónomo</button>
           <button id="manualModeButton" type="button">Manual</button>
         </div>
+        <div class="cycle-controls">
+          <label><input id="cycleUnlimited" type="checkbox" checked> Sin límite de tiempo</label>
+          <label for="cycleDuration">Duración del ciclo (segundos)</label>
+          <input id="cycleDuration" type="number" min="1" max="86400" step="1" value="60" disabled>
+          <small class="muted">Se aplica al pulsar Autónomo. Al vencer, se detienen movimiento y aspiración. Sin límite, detén el ciclo desde la interfaz.</small>
+        </div>
+        <div id="navigationPanel" class="navigation-panel" hidden>
+          <p class="muted">Patrón: <strong>Rebote: lado aleatorio, giro hasta espacio libre</strong></p>
+          <p id="cycleStatus" role="status"></p>
+          <p id="navigationStatus" role="status">Esperando sensores</p>
+          <button id="automaticStopButton" class="secondary compact" type="button">Parar automático</button>
+          <small class="muted">Para reanudar después de una pausa, vuelve a pulsar Autónomo.</small>
+        </div>
+      </section>
+
+      <section class="card" id="motorControlCard">
+        <h2>Velocidad de los motores</h2>
+        <p class="muted">Ajustes independientes para manual y automático. En automático, los giros usan una velocidad reducida.</p>
+        <div class="motor-sliders">
+          <div><label class="speed-control" for="leftSpeedSlider"><span>Motor izquierdo</span><strong><span id="leftSpeedValue">30</span>%</strong></label>
+            <input id="leftSpeedSlider" class="slider" type="range" min="0" max="100" value="30" step="1" disabled></div>
+          <div><label class="speed-control" for="rightSpeedSlider"><span>Motor derecho</span><strong><span id="rightSpeedValue">30</span>%</strong></label>
+            <input id="rightSpeedSlider" class="slider" type="range" min="0" max="100" value="30" step="1" disabled></div>
+        </div>
+        <p id="motorSettingsStatus" class="muted" role="status">Leyendo ajustes del servidor…</p>
       </section>
 
       <section class="card" id="manualControlCard">
@@ -89,12 +114,7 @@
             <h2>Control manual</h2>
             <p class="muted">Mantené presionado para mover. Al soltar, el robot se detiene.</p>
           </div>
-          <label class="speed-control" for="speedSlider">
-            <span>Velocidad</span>
-            <strong><span id="speedValue">50</span>%</strong>
-          </label>
         </div>
-        <input id="speedSlider" class="slider" type="range" min="20" max="100" value="50" step="5">
 
         <div class="dpad" aria-label="Controles direccionales">
           <button class="move-button up" data-direction="forward" type="button" aria-label="Avanzar">▲</button>
@@ -137,6 +157,16 @@
             <div><span>Sensor de suelo</span><span id="ledFloor" class="led warning" role="img" aria-label="Sin lectura de suelo" title="Sin lectura de suelo"></span></div>
           </div>
         </article>
+      </section>
+
+      <section class="card">
+        <h2>Aspiración</h2>
+        <p id="suctionState" class="muted" role="status">Consultando aspiración…</p>
+        <div class="audio-controls">
+          <button id="suctionOnButton" type="button" disabled>Encender aspiración</button>
+          <button id="suctionOffButton" class="secondary" type="button">Apagar aspiración</button>
+        </div>
+        <p class="muted">Control independiente del movimiento. Se apaga al perder las renovaciones de esta web durante 5 segundos. El estado indica la orden al circuito.</p>
       </section>
 
       <section class="card">
@@ -183,7 +213,7 @@
     </section>
   </main>
 
-  <script src="js/app.js?v=20261004-layout3" defer></script>
+  <script src="js/app.js?v=20261004-motores1" defer></script>
 </body>
 
 </html>

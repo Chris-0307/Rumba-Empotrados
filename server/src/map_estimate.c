@@ -7,8 +7,7 @@
 #define PI 3.14159265358979323846
 static unsigned char cells[GRID][GRID];
 static double x, y, heading, cell_cm, speed_cm_s, turn_deg_s;
-static int power;
-static const char *motion;
+static int left_power,right_power;
 static double setting(const char *name, double fallback) {
     const char *s=getenv(name); char *end; double value;
     if (!s || !*s) return fallback;
@@ -18,38 +17,34 @@ static double setting(const char *name, double fallback) {
 static int coordinate(double value) { return (int)floor(value+0.5); }
 void map_estimate_init(void) {
     memset(cells,0,sizeof cells); x=y=GRID/2; heading=-PI/2;
-    power=0; motion="stop";
+    left_power=right_power=0;
     cell_cm=setting("ROBOT_MAP_CELL_CM",20);
     speed_cm_s=setting("ROBOT_MAP_SPEED_CM_S",20);
     turn_deg_s=setting("ROBOT_MAP_TURN_DEG_S",90);
     cells[coordinate(y)][coordinate(x)]=1;
 }
-void map_estimate_motion(const char *direction, int speed) {
-    power=speed;
-    if (!strcmp(direction,"forward")) motion="forward";
-    else if (!strcmp(direction,"backward")) motion="backward";
-    else if (!strcmp(direction,"left")) motion="left";
-    else if (!strcmp(direction,"right")) motion="right";
-    else { motion="stop"; power=0; }
+void map_estimate_motor_speeds(int left,int right) {left_power=left;right_power=right;}
+void map_estimate_motion(const char *direction,int speed) {
+    int l=speed,r=speed;
+    if (!strcmp(direction,"stop")) l=r=0;
+    else {
+        if (!strcmp(direction,"backward") || !strcmp(direction,"left")) l=-l;
+        if (!strcmp(direction,"backward") || !strcmp(direction,"right")) r=-r;
+    }
+    map_estimate_motor_speeds(l,r);
 }
 void map_estimate_advance(double seconds) {
-    if (!isfinite(seconds) || seconds<=0 || !power) return;
-    if (!strcmp(motion,"left") || !strcmp(motion,"right")) {
-        double sign=!strcmp(motion,"left")?-1:1;
-        heading=fmod(heading+sign*seconds*turn_deg_s*PI/180*power/100,2*PI);
-        return;
-    }
-    if (strcmp(motion,"forward") && strcmp(motion,"backward")) return;
-    double travel=seconds*speed_cm_s/cell_cm*power/100;
-    double sign=!strcmp(motion,"forward")?1:-1;
-    /* At most a quarter cell per step; avoid skipping visited cells. */
-    int steps=(int)ceil(travel/0.25);
+    if (!isfinite(seconds) || seconds<=0 || (!left_power && !right_power)) return;
+    double travel=seconds*speed_cm_s/cell_cm*(left_power+right_power)/200.0;
+    double angle=seconds*turn_deg_s*PI/180*(left_power-right_power)/200.0;
+    int steps=(int)ceil(fmax(fabs(travel)/.25,fabs(angle)/(PI/36)));
+    if (steps<1) steps=1;
     if (steps>10000) steps=10000;
-    for (int i=0;i<steps;i++) {
-        double nx=x+sign*cos(heading)*travel/steps;
-        double ny=y+sign*sin(heading)*travel/steps;
-        if(nx<0 || nx>GRID-1 || ny<0 || ny>GRID-1) break;
-        x=nx;y=ny;cells[coordinate(y)][coordinate(x)]=1;
+    for(int i=0;i<steps;i++) {
+        double half=angle/(2*steps),mid=heading+half;
+        double nx=x+cos(mid)*travel/steps,ny=y+sin(mid)*travel/steps;
+        heading=fmod(heading+angle/steps,2*PI);
+        if (nx>=0 && nx<=GRID-1 && ny>=0 && ny<=GRID-1) {x=nx;y=ny;cells[coordinate(y)][coordinate(x)]=1;}
     }
 }
 void map_estimate_obstacle(double cm) {

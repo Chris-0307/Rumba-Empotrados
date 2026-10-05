@@ -27,11 +27,14 @@ const ui = {
   connectionDot: $("connectionDot"),
   logoutButton: $("logoutButton"),
   modeBadge: $("modeBadge"),
+  navigationPanel: $("navigationPanel"), navigationStatus: $("navigationStatus"),
+  cycleUnlimited: $("cycleUnlimited"), cycleDuration: $("cycleDuration"), cycleStatus: $("cycleStatus"),
+  automaticStopButton: $("automaticStopButton"),
   autonomousModeButton: $("autonomousModeButton"),
   manualModeButton: $("manualModeButton"),
   manualControlCard: $("manualControlCard"),
-  speedSlider: $("speedSlider"),
-  speedValue: $("speedValue"),
+  leftSpeedSlider: $("leftSpeedSlider"), rightSpeedSlider: $("rightSpeedSlider"),
+  leftSpeedValue: $("leftSpeedValue"), rightSpeedValue: $("rightSpeedValue"), motorSettingsStatus: $("motorSettingsStatus"),
   stopButton: $("stopButton"),
   sensorFront: $("sensorFront"),
   ledPower: $("ledPower"),
@@ -46,6 +49,8 @@ const ui = {
   volumeSlider: $("volumeSlider"),
   volumeValue: $("volumeValue"),
   audioStatus: $("audioStatus"),
+  suctionState: $("suctionState"), suctionOnButton: $("suctionOnButton"),
+  suctionOffButton: $("suctionOffButton"),
   mapCanvas: $("mapCanvas")
 };
 
@@ -61,6 +66,11 @@ let authMode = "login";
 let floorBlocked = true;
 let sessionName = "";
 let authPending = false;
+let suctionRequested = false;
+let suctionPending = false;
+let suctionRenewal = null;
+let motorReady=false, motorDirty=false, motorRevision=0, motorSave=null;
+let manualMoveRequest=null, manualStopping=false;
 
 function getApiBase() {
   const ip = ui.raspberryIp.value.trim();
@@ -107,7 +117,7 @@ async function apiRequest(path, method = "GET", body = null, useAuth = true, kee
 
   if (!response.ok) {
     const code = data.error || `Error HTTP ${response.status}`;
-    const messages = { floor_safety_blocked: "Movimiento bloqueado por el sensor de suelo. Revisa su estado y confirma la recuperación.", invalid_credentials: "Usuario o contraseña incorrectos.", username_exists: "Ese usuario ya existe. Inicia sesión o utiliza otro nombre.", manual_mode_required: "Selecciona el modo manual para mover el robot." };
+    const messages = { cycle_completed: "El ciclo terminó. Inicia otro ciclo o cambia a manual para activar la aspiración.", invalid_duration_seconds: "Usa una duración entera entre 1 y 86400 segundos.", suction_unavailable: "Aspiración no disponible. Revisa la versión de librobot y GPIO13.", floor_safety_blocked: "Movimiento bloqueado por el sensor de suelo. Revisa su estado y confirma la recuperación.", invalid_credentials: "Usuario o contraseña incorrectos.", username_exists: "Ese usuario ya existe. Inicia sesión o utiliza otro nombre.", manual_mode_required: "Selecciona el modo manual para mover el robot." };
     throw new Error(messages[code] || code);
   }
 
@@ -130,6 +140,8 @@ function clearError() {
 }
 
 function showLogin() {
+  suctionRequested = false;
+  motorReady=false;motorDirty=false;
   loggedIn = false;
   stopPolling();
   heldDirection = null;
@@ -195,6 +207,16 @@ function renderMode(modeData) {
   const manual = currentMode === "manual";
   const automatic = currentMode === "automatic";
 
+  ui.navigationPanel.hidden = !automatic;
+  const navigation = modeData.navigation || {};
+  const states = { idle: "Inactivo", waiting: "Esperando sensores", forward: "Avanzando", braking: "Parando ante un obstáculo", turn_left: "Rebote: girando a la izquierda", turn_right: "Rebote: girando a la derecha", paused: "Automático pausado" };
+  const reasons = { zero_speed: "ambos motores en 0 %; ajusta y pulsa Autónomo para reanudar", cycle_completed: "ciclo finalizado", cycle_ending: "deteniendo el ciclo", waiting_floor: "esperando piso confirmado", floor_safety_blocked: "protección de suelo", waiting_front: "sin lectura frontal válida", user_stop: "parada solicitada", turn_timeout: "sin salida confirmada dentro del tiempo máximo de giro", searching_clearance: "buscando espacio libre", confirming_clearance: "confirmando tres lecturas mayores de 25 cm", checking_front: "comprobando el frente después de parar", motor_error: "error del controlador de motores", clock_error: "error de temporización" };
+  ui.navigationStatus.textContent = (states[navigation.state] || "Estado automático no disponible") + (reasons[navigation.reason] ? ` · ${reasons[navigation.reason]}` : "");
+
+  const cycle = modeData.cycle || {};
+  const cycleMessages = { completed: "Ciclo finalizado · tiempo cumplido", finishing: "Tiempo cumplido · deteniendo motores y aspiración", cancelled: "Ciclo detenido por el usuario" };
+  ui.cycleStatus.textContent = cycleMessages[cycle.status] || (cycle.status === "running" ? (cycle.duration_seconds > 0 ? `Tiempo restante: ${cycle.remaining_seconds} s` : "Ciclo sin límite de tiempo") : "");
+  if (automatic && (cycle.status === "completed" || cycle.status === "finishing")) suctionRequested = false;
   ui.modeBadge.textContent = manual ? "MANUAL" : automatic ? "AUTÓNOMO" : "--";
   ui.manualModeButton.classList.toggle("active", manual);
   ui.autonomousModeButton.classList.toggle("active", automatic);
@@ -206,7 +228,7 @@ function renderMode(modeData) {
 
 function updateMovementButtons() {
   document.querySelectorAll(".move-button").forEach(button => {
-    button.disabled = button.id === "stopButton" ? false : currentMode !== "manual" || floorBlocked;
+    button.disabled = button.id === "stopButton" ? false : currentMode !== "manual" || floorBlocked || !motorReady || manualStopping;
   });
 }
 
@@ -247,6 +269,62 @@ function renderSensors(sensors) {
   updateMovementButtons();
 }
 
+function renderSuction(data) {
+  const available = data.available === true;
+  ui.suctionState.textContent = !available ? "Aspiración no disponible" : data.enabled ? "Aspiración encendida · orden al circuito" : "Aspiración apagada";
+  ui.suctionOnButton.disabled = !available || suctionPending;
+  ui.suctionOffButton.disabled = suctionPending;
+}
+async function setSuction(enabled) {
+  if (!loggedIn || suctionPending) return;
+  suctionPending = true;
+  suctionRequested = false;
+  ui.suctionOnButton.disabled = true;
+  ui.suctionOffButton.disabled = true;
+  try {
+    if (suctionRenewal) await suctionRenewal.catch(() => {});
+    const data = await apiRequest("/api/suction", "PUT", { action: enabled ? "on" : "off" });
+    suctionRequested = enabled && data.enabled === true;
+    renderSuction(data);
+    sectionStatus("suctionAvailability", ui.suctionState, "");
+  } catch (error) {
+    renderSuction({});
+    sectionStatus("suctionAvailability", ui.suctionState, error.message);
+  } finally {
+    suctionPending = false;
+    ui.suctionOffButton.disabled = false;
+    if (suctionRequested) ui.suctionOnButton.disabled = false;
+  }
+}
+
+function renderMotors(data) {
+  if (!Number.isInteger(data.left_speed) || !Number.isInteger(data.right_speed)) throw new Error("Actualiza el servidor para controlar cada motor.");
+  motorReady=true;
+  ui.leftSpeedSlider.disabled=ui.rightSpeedSlider.disabled=false;
+  if (!motorDirty && !motorSave) {
+    ui.leftSpeedSlider.value=data.left_speed;ui.rightSpeedSlider.value=data.right_speed;
+    ui.leftSpeedValue.textContent=data.left_speed;ui.rightSpeedValue.textContent=data.right_speed;
+    ui.motorSettingsStatus.textContent=`Giro automático: izquierdo ${data.turn_left_speed}% · derecho ${data.turn_right_speed}%`;
+  }
+  updateMovementButtons();
+}
+async function readMotorSettings() {
+  const revision=motorRevision,busy=motorDirty || !!motorSave;
+  const data=await apiRequest("/api/motors");
+  if (loggedIn && revision===motorRevision && !busy && !motorDirty && !motorSave) renderMotors(data);
+}
+async function saveMotorSettings() {
+  if (motorSave) {await motorSave;if (motorDirty) return saveMotorSettings();return;}
+  if (!motorDirty) return;
+  const revision=motorRevision;
+  const body={left_speed:Number(ui.leftSpeedSlider.value),right_speed:Number(ui.rightSpeedSlider.value)};
+  motorSave=apiRequest("/api/motors","PUT",body);
+  try {
+    const data=await motorSave;
+    if (revision===motorRevision) {motorDirty=false;ui.motorSettingsStatus.textContent=`Giro automático: izquierdo ${data.turn_left_speed}% · derecho ${data.turn_right_speed}%`;}
+  } finally {motorSave=null;}
+  if (motorDirty) return saveMotorSettings();
+}
 function renderIndicators(indicators) {
   setLed(ui.ledPower, indicators.system === "functional");
   setLed(ui.ledAutonomous, indicators.mode === "automatic");
@@ -299,6 +377,11 @@ async function refreshState() {
   refreshingState = true;
   try {
     await Promise.allSettled([
+      readMotorSettings().catch(error => {
+        if (!loggedIn) return;
+        motorReady=false;ui.leftSpeedSlider.disabled=ui.rightSpeedSlider.disabled=true;
+        ui.motorSettingsStatus.textContent=error.message;updateMovementButtons();
+      }),
       apiRequest("/api/mode").then((data) => {
         if (!loggedIn) return;
         renderMode(data);
@@ -327,6 +410,23 @@ async function refreshState() {
         if (!loggedIn) return;
         renderIndicators({});
         sectionStatus("indicatorStatus", ui.ledPower, "Indicadores no disponibles");
+      }),
+      apiRequest("/api/suction").then(async (data) => {
+        if (!loggedIn || suctionPending) return;
+        renderSuction(data);
+        if (data.enabled !== true) suctionRequested = false;
+        if (suctionRequested) {
+          suctionRenewal = apiRequest("/api/suction", "PUT", { action: "on" });
+          let renewed;
+          try { renewed = await suctionRenewal; } finally { suctionRenewal = null; }
+          if (loggedIn && !suctionPending && suctionRequested) renderSuction(renewed);
+        }
+        sectionStatus("suctionAvailability", ui.suctionState, "");
+      }).catch((error) => {
+        if (!loggedIn) return;
+        suctionRequested = false;
+        renderSuction({});
+        sectionStatus("suctionAvailability", ui.suctionState, `Aspiración no disponible: ${error.message}`);
       }),
       apiRequest("/api/audio/state").then((data) => {
         if (!loggedIn) return;
@@ -440,11 +540,17 @@ function drawMap(map) {
 
 async function setMode(mode) {
   try {
+    if (!motorReady) throw new Error("Espera a que se lean los ajustes de motores.");
+    await saveMotorSettings();
     if (heldDirection) {
       await stopMovement();
     }
 
-    const data = await apiRequest("/api/mode", "PUT", { mode });
+    const duration = mode === "automatic" && !ui.cycleUnlimited.checked ? Number(ui.cycleDuration.value) : 0;
+    if (mode === "automatic" && !ui.cycleUnlimited.checked && (!Number.isInteger(duration) || duration < 1 || duration > 86400)) {
+      throw new Error("Usa una duración entera entre 1 y 86400 segundos.");
+    }
+    const data = await apiRequest("/api/mode", "PUT", { mode, duration_seconds: duration });
     renderMode(data);
     clearError();
     await refreshState();
@@ -454,16 +560,16 @@ async function setMode(mode) {
 }
 
 async function startMovement(direction, button) {
-  if (!loggedIn || currentMode !== "manual" || floorBlocked || heldDirection) return;
+  if (!loggedIn || currentMode !== "manual" || floorBlocked || !motorReady || manualStopping || heldDirection) return;
 
   heldDirection = direction;
   button?.classList.add("pressed");
 
   try {
-    await apiRequest("/api/move", "POST", {
-      direction,
-      speed: Number(ui.speedSlider.value)
-    });
+    await saveMotorSettings();
+    if (heldDirection !== direction || !loggedIn || currentMode !== "manual" || floorBlocked) return;
+    manualMoveRequest=apiRequest("/api/move","POST",{direction});
+    try {await manualMoveRequest;} finally {manualMoveRequest=null;}
   } catch (error) {
     heldDirection = null;
     button?.classList.remove("pressed");
@@ -472,6 +578,8 @@ async function startMovement(direction, button) {
 }
 
 async function stopMovement(keepalive = false) {
+  if (manualStopping) return;
+  manualStopping=true;updateMovementButtons();
   document.querySelectorAll(".move-button.pressed").forEach((button) => {
     button.classList.remove("pressed");
   });
@@ -479,6 +587,7 @@ async function stopMovement(keepalive = false) {
   heldDirection = null;
 
   try {
+    if (manualMoveRequest) await manualMoveRequest.catch(() => {});
     await apiRequest("/api/move", "POST", {
       direction: "stop",
       speed: 0
@@ -486,11 +595,18 @@ async function stopMovement(keepalive = false) {
     if (!keepalive && loggedIn) { clearError(); await refreshState(); }
   } catch (error) {
     if (!keepalive) showError(error.message);
-  }
+  } finally {manualStopping=false;updateMovementButtons();}
 }
 
 function emergencyStop() {
+  suctionRequested = false;
   if (!loggedIn || !authToken || !apiBase) return;
+
+  fetch(`${apiBase}/api/suction`, {
+    method: "PUT", keepalive: true,
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${authToken}` },
+    body: JSON.stringify({ action: "off" })
+  }).catch(() => {});
 
   fetch(`${apiBase}/api/move`, {
     method: "POST",
@@ -594,6 +710,7 @@ ui.loginForm.addEventListener("submit", async (event) => {
 });
 
 ui.logoutButton.addEventListener("click", async () => {
+  await setSuction(false);
   try {
     await apiRequest("/api/move", "POST", { direction: "stop", speed: 0 });
   } catch (_) {
@@ -610,12 +727,15 @@ ui.logoutButton.addEventListener("click", async () => {
   showLogin();
 });
 
+ui.cycleUnlimited.addEventListener("change", () => { ui.cycleDuration.disabled = ui.cycleUnlimited.checked; });
+
 ui.autonomousModeButton.addEventListener("click", () => setMode("automatic"));
 ui.manualModeButton.addEventListener("click", () => setMode("manual"));
 
-ui.speedSlider.addEventListener("input", () => {
-  ui.speedValue.textContent = ui.speedSlider.value;
-});
+for (const [slider,value] of [[ui.leftSpeedSlider,ui.leftSpeedValue],[ui.rightSpeedSlider,ui.rightSpeedValue]]) {
+  slider.addEventListener("input", () => {value.textContent=slider.value;motorDirty=true;motorRevision++;ui.motorSettingsStatus.textContent="Ajuste pendiente · suelta el slider para aplicar";});
+  slider.addEventListener("change", () => {saveMotorSettings().catch(error => {ui.motorSettingsStatus.textContent=`No se pudo aplicar: ${error.message}`;});});
+}
 
 for (const button of document.querySelectorAll(".move-button[data-direction]")) {
   button.addEventListener("pointerdown", (event) => {
@@ -633,13 +753,14 @@ for (const button of document.querySelectorAll(".move-button[data-direction]")) 
 }
 
 ui.stopButton.addEventListener("click", () => stopMovement());
+ui.automaticStopButton.addEventListener("click", () => stopMovement());
 ui.floorResetButton.addEventListener("click", () => stopMovement());
 window.addEventListener("pointerup", () => {
   if (heldDirection) stopMovement();
 });
 window.addEventListener("pagehide", emergencyStop);
 document.addEventListener("visibilitychange", () => {
-  if (document.hidden && heldDirection) emergencyStop();
+  if (document.hidden && (heldDirection || suctionRequested)) emergencyStop();
 });
 
 ui.playButton.addEventListener("click", async () => {
@@ -694,3 +815,6 @@ ui.volumeSlider.addEventListener("change", async () => {
 
 selectAuthMode("login");
 showLogin();
+
+ui.suctionOnButton.addEventListener("click", () => setSuction(true));
+ui.suctionOffButton.addEventListener("click", () => setSuction(false));

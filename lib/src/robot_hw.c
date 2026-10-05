@@ -3,6 +3,8 @@
 #include "sensor_backend.h"
 #include "leds.h"
 #include "audio.h"
+#include "suction.h"
+#include <stdio.h>
 
 
 int robot_init(void)
@@ -67,14 +69,23 @@ int robot_init(void)
     }
 
 
+    /* Fallo de aspiracion no bloquea sensores, audio ni desplazamiento. */
+    if (robot_suction_init()!=ROBOT_OK)
+        fprintf(stderr,"Aspiracion no disponible: no se pudo solicitar GPIO13\n");
+
+    if (robot_alerts_init()!=ROBOT_OK)
+        fprintf(stderr,"Avisos de audio no disponibles\n");
+
     return ROBOT_OK;
 }
 
 
 void robot_cleanup(void)
 {
+    robot_suction_cleanup();
     robot_stop();
 
+    robot_alerts_cleanup();
     robot_audio_stop();
     robot_audio_cleanup();
 

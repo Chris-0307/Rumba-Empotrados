@@ -104,6 +104,8 @@ static int field(const char *body, const char *wanted, char *out, size_t cap) {
         }
         size_t len = (size_t)(p - value);
         if (quoted) p++;
+        const char *tail=p;while (*tail==' ' || *tail=='\t' || *tail=='\r' || *tail=='\n') tail++;
+        if (*tail!=',' && *tail!='}') return -1;
         if (strlen(wanted) == keylen && memcmp(start, wanted, keylen) == 0) {
             if (!len || len >= cap) return -1;
             memcpy(out, value, len); out[len] = 0; return 0;
@@ -285,14 +287,47 @@ static void dispatch(int fd, const Request *r) {
         } else error_json(fd,404,"user_not_found");
         sqlite3_finalize(s); return;
     }
+    if (!strcmp(r->method,"GET") && !strcmp(r->path,"/api/suction")) {
+        if (robot_adapter_suction_json(out,sizeof out)) error_json(fd,503,"suction_unavailable");
+        else respond(fd,200,out);
+        return;
+    }
+    if (!strcmp(r->method,"PUT") && !strcmp(r->path,"/api/suction")) {
+        char action[8];
+        if (field(r->body,"action",action,sizeof action) || (strcmp(action,"on") && strcmp(action,"off"))) {
+            error_json(fd,400,"invalid_suction_action");return;
+        }
+        int suction_result=robot_adapter_suction_set(!strcmp(action,"on"));
+        if (suction_result==-5) {error_json(fd,409,"cycle_completed");return;}
+        if (suction_result) {error_json(fd,503,"suction_unavailable");return;}
+        if (robot_adapter_suction_json(out,sizeof out)) error_json(fd,503,"suction_unavailable");
+        else respond(fd,200,out);
+        return;
+    }
     if (!strcmp(r->method,"GET") && !strcmp(r->path,"/api/mode")) {
-        format(out,sizeof out,"{\"mode\":\"%s\"}",robot_adapter_get_mode()); respond(fd,200,out); return;
+        if (robot_adapter_mode_json(out,sizeof out)) { error_json(fd,503,"controller_unavailable"); return; }
+        respond(fd,200,out); return;
     }
     if (!strcmp(r->method,"PUT") && !strcmp(r->path,"/api/mode")) {
         char value[16];
         if (field(r->body,"mode",value,sizeof value) || (strcmp(value,"manual") && strcmp(value,"automatic"))) { error_json(fd,400,"invalid_mode"); return; }
-        if (robot_adapter_mode(value)) { error_json(fd,503,"controller_unavailable"); return; }
-        speed=0; format(out,sizeof out,"{\"mode\":\"%s\"}",robot_adapter_get_mode()); respond(fd,200,out); return;
+        int duration=0;
+        if (strstr(r->body,"\"duration_seconds\"") && integer_field(r->body,"duration_seconds",&duration,0,86400)) {
+            error_json(fd,400,"invalid_duration_seconds");return;
+        }
+        if (robot_adapter_mode_timed(value,duration)) { error_json(fd,503,"controller_unavailable"); return; }
+        speed=0; if (robot_adapter_mode_json(out,sizeof out)) { error_json(fd,503,"controller_unavailable"); return; }
+        respond(fd,200,out); return;
+    }
+    if (!strcmp(r->path,"/api/motors") && (!strcmp(r->method,"GET") || !strcmp(r->method,"PUT"))) {
+        if (!strcmp(r->method,"PUT")) {
+            int left,right;
+            if (integer_field(r->body,"left_speed",&left,0,100) || integer_field(r->body,"right_speed",&right,0,100)) {error_json(fd,400,"invalid_motor_speeds");return;}
+            if (robot_adapter_motors_set(left,right)) {error_json(fd,503,"motors_unavailable");return;}
+        }
+        if (robot_adapter_motors_json(out,sizeof out)) error_json(fd,503,"motors_unavailable");
+        else respond(fd,200,out);
+        return;
     }
     if (!strcmp(r->method,"GET") && !strcmp(r->path,"/api/sensors")) {
         if (robot_adapter_sensor_json(out,sizeof out)) { error_json(fd,503,"sensors_unavailable"); return; }
@@ -304,16 +339,19 @@ static void dispatch(int fd, const Request *r) {
         format(out,sizeof out,"{\"system\":\"functional\",\"mode\":\"%s\",\"obstacle\":%s}",robot_adapter_get_mode(),(f<20)?"true":"false"); respond(fd,200,out); return;
     }
     if (!strcmp(r->method,"POST") && !strcmp(r->path,"/api/move")) {
-        char direction[20]; int requested_speed;
+        char direction[20]; int requested_speed=0;
         if (field(r->body,"direction",direction,sizeof direction) ||
             (strcmp(direction,"forward") && strcmp(direction,"backward") && strcmp(direction,"left") && strcmp(direction,"right") && strcmp(direction,"stop"))) { error_json(fd,400,"invalid_direction"); return; }
-        if (integer_field(r->body,"speed",&requested_speed,0,100)) { error_json(fd,400,"invalid_speed"); return; }
-        int move_result=robot_adapter_move(direction,requested_speed);
+        int legacy=strstr(r->body,"\"speed\"")!=NULL;
+        if (legacy && integer_field(r->body,"speed",&requested_speed,0,100)) {error_json(fd,400,"invalid_speed");return;}
+        int move_result=legacy?robot_adapter_move(direction,requested_speed):robot_adapter_move_configured(direction);
         if (move_result==-4) { error_json(fd,409,"floor_safety_blocked"); return; }
         if (move_result==-3) { error_json(fd,409,"manual_mode_required"); return; }
         if (move_result) { error_json(fd,503,"motors_unavailable"); return; }
         speed=strcmp(direction,"stop") ? requested_speed : 0;
-        format(out,sizeof out,"{\"direction\":\"%s\",\"speed\":%d}",direction,speed); respond(fd,200,out); return;
+        if (legacy) format(out,sizeof out,"{\"direction\":\"%s\",\"speed\":%d}",direction,speed);
+        else if (robot_adapter_motors_json(out,sizeof out)) {error_json(fd,503,"motors_unavailable");return;}
+        respond(fd,200,out);return;
     }
     if (!strcmp(r->method,"GET") && !strcmp(r->path,"/api/map")) {
         if (robot_adapter_map(out,sizeof out)) error_json(fd,503,"map_unavailable"); else respond(fd,200,out); return;

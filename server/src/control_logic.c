@@ -99,14 +99,29 @@ void control_cleanup(void) {
     current_mode = MODE_UNKNOWN;
 }
 
-int control_move(const char *direction, int speed) {
+int control_move_pair(const char *direction,int left,int right,int automatic) {
+    if (!direction || left<0 || left>100 || right<0 || right>100) return CONTROL_INVALID_ARGUMENT;
+    if (strcmp(direction,"forward") && strcmp(direction,"backward") && strcmp(direction,"left") && strcmp(direction,"right") && strcmp(direction,"stop")) return CONTROL_INVALID_ARGUMENT;
+    if (!initialized) return CONTROL_ERROR;
+    if (!strcmp(direction,"stop") || (!left && !right)) return control_stop();
+    if (current_mode != (automatic?MODE_AUTOMATIC:MODE_MANUAL)) return CONTROL_MANUAL_REQUIRED;
+    if (!strcmp(direction,"backward") || !strcmp(direction,"left")) left=-left;
+    if (!strcmp(direction,"backward") || !strcmp(direction,"right")) right=-right;
+    if (simulated) {fprintf(stderr,"SIMULACION: motores izquierdo=%d derecho=%d\n",left,right);return CONTROL_OK;}
+#ifdef ROBOT_WITH_HARDWARE
+    if (robot_set_motor_speeds(left,right)==ROBOT_OK) return CONTROL_OK;
+    (void)robot_stop();current_mode=MODE_UNKNOWN;
+#endif
+    return CONTROL_ERROR;
+}
+static int move_in_mode(const char *direction, int speed, ControlMode required_mode) {
     if (!direction || speed < 0 || speed > 100) return CONTROL_INVALID_ARGUMENT;
     if (strcmp(direction, "forward") && strcmp(direction, "backward") &&
         strcmp(direction, "left") && strcmp(direction, "right") && strcmp(direction, "stop"))
         return CONTROL_INVALID_ARGUMENT;
     if (!initialized) return CONTROL_ERROR;
     if (!strcmp(direction, "stop")) return control_stop();
-    if (current_mode != MODE_MANUAL) return CONTROL_MANUAL_REQUIRED;
+    if (current_mode != required_mode) return CONTROL_MANUAL_REQUIRED;
     if (simulated) {
         fprintf(stderr, "SIMULACION: move=%s speed=%d (sin GPIO)\n", direction, speed);
         return CONTROL_OK;
@@ -127,3 +142,6 @@ int control_move(const char *direction, int speed) {
     return CONTROL_ERROR;
 #endif
 }
+
+int control_move(const char *direction,int speed) { return move_in_mode(direction,speed,MODE_MANUAL); }
+int control_auto_move(const char *direction,int speed) { return move_in_mode(direction,speed,MODE_AUTOMATIC); }
