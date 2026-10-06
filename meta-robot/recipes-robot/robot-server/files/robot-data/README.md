@@ -1,0 +1,1 @@
+Antes de generar la imagen, copiar aquí robot.db del robot (servidor detenido) y la carpeta music/. Son datos locales privados; no publicar contraseñas ni archivos de audio sin autorización. La receta falla si no hay robot.db para evitar perder los usuarios existentes.

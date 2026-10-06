@@ -1,0 +1,13 @@
+#!/bin/sh
+set -eu
+[ "$#" -eq 1 ] || { echo 'Uso: robot-resumir-recursos /ruta/recursos.csv' >&2; exit 1; }
+awk -F, '
+NR==1 {if ($1!="uptime_s" || NF!=7) {bad=1; exit}; next}
+NF==7 {n++; c=$2+0; r=$3+0; dt=$6+0; di=$7+0;
+    b=dt-di; if(b<0)b=0; if(b>dt)b=dt;
+    total+=dt; busy+=b; ram+=r;
+    if(n==1 || c>cm)cm=c; if(n==1 || r>rm)rm=r}
+END {
+    if(bad || !n || total<=0) {print "CSV invalido o sin muestras validas"; exit 1}
+    printf "Muestras: %d\nCPU global promedio: %.2f %%\nCPU maxima muestreada: %.2f %%\nRAM promedio: %.2f MiB\nRAM maxima muestreada: %.2f MiB\n",n,100*busy/total,cm,ram/n,rm
+}' "$1"

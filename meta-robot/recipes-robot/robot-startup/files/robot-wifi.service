@@ -1,0 +1,18 @@
+[Unit]
+Description=RumBa - asociacion Wi-Fi en wlan0
+Wants=systemd-networkd.service
+After=sys-subsystem-net-devices-wlan0.device systemd-networkd.service
+BindsTo=sys-subsystem-net-devices-wlan0.device
+Conflicts=connman.service networking.service wpa_supplicant.service wpa_supplicant@wlan0.service
+StartLimitIntervalSec=0
+
+[Service]
+Type=exec
+ExecStartPre=/usr/libexec/robot/robot-wifi-unblock
+ExecStart=/usr/sbin/wpa_supplicant -D nl80211 -i wlan0 -c /etc/robot/wpa_supplicant.conf
+Restart=on-failure
+RestartSec=3s
+TimeoutStopSec=5s
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,63 @@
+#!/bin/sh
+# POSIX sh + awk + du; compatible con una imagen BusyBox.
+set -eu
+samples=${1:-120}
+out=${2:-/tmp/rumba-medicion}
+case "$samples" in ''|*[!0-9]*) echo 'Uso: sh medir-recursos.sh [muestras 1..3600] [directorio]' >&2; exit 1;; esac
+[ "$samples" -ge 1 ] && [ "$samples" -le 3600 ] || exit 1
+mkdir -p "$out"
+if [ -e "$out/recursos.csv" ]; then
+    echo "Ya existe $out/recursos.csv; utiliza otro directorio." >&2; exit 1
+fi
+if ! grep -q '^MemAvailable:' /proc/meminfo; then
+    echo 'Este metodo requiere MemAvailable en /proc/meminfo.' >&2; exit 1
+fi
+{
+    date -u
+    uname -a
+    cat /etc/os-release
+    echo 'Rootfs ocupado: du -x -sk / (KiB asignados; excluye otros sistemas de archivos)'
+    du -x -sk / | awk '{printf "rootfs_KiB=%s\nrootfs_MB=%.3f\nrootfs_MiB=%.3f\n",$1,$1*1024/1000000,$1/1024}'
+    echo 'Capacidad y uso de particiones (no confundir capacidad con contenido):'
+    df -k
+    echo 'Estado de servicios:'
+    systemctl is-active robot.service robot-wifi.service systemd-networkd.service || true
+    echo 'Procesos al inicio (confirmar robot_server y mpg123):'
+    ps
+} > "$out/contexto.txt" 2>&1
+cpu_read() {
+    # No sumar guest/guest_nice: ya estan incluidos en user/nice.
+    awk '/^cpu / {total=0; for(i=2;i<=9 && i<=NF;i++) total+=$i; print total,$5+$6; exit}' /proc/stat
+}
+set -- $(cpu_read)
+prev_total=$1
+prev_idle=$2
+printf 'uptime_s,cpu_pct,ram_usada_MiB,ram_total_MiB,ram_disponible_MiB,delta_total_ticks,delta_idle_ticks\n' > "$out/recursos.csv"
+i=0
+echo "Midiendo $samples intervalos de aproximadamente 1 s; conserva automatico, MP3 y web activos."
+while [ "$i" -lt "$samples" ]; do
+    sleep 1
+    set -- $(cpu_read)
+    total=$1
+    idle=$2
+    dt=$((total-prev_total))
+    di=$((idle-prev_idle))
+    awk -v dt="$dt" -v di="$di" '
+        FILENAME=="/proc/uptime" {up=$1; next}
+        /^MemTotal:/ {mt=$2}
+        /^MemAvailable:/ {ma=$2}
+        END {
+            busy=dt-di; if(busy<0) busy=0; if(busy>dt) busy=dt;
+            cpu=dt>0 ? 100*busy/dt : 0;
+            printf "%.2f,%.3f,%.3f,%.3f,%.3f,%.0f,%.0f\n",up,cpu,(mt-ma)/1024,mt/1024,ma/1024,dt,di;
+        }' /proc/uptime /proc/meminfo >> "$out/recursos.csv"
+    prev_total=$total
+    prev_idle=$idle
+    i=$((i+1))
+done
+{
+    echo 'Procesos al final:'
+    ps
+    systemctl show robot.service -p NRestarts -p ActiveState -p SubState
+} >> "$out/contexto.txt" 2>&1
+echo "Resultados: $out/recursos.csv y $out/contexto.txt"
