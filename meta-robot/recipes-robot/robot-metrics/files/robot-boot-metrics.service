@@ -1,0 +1,15 @@
+[Unit]
+Description=RumBa - medir disponibilidad HTTP en cada arranque
+After=local-fs.target
+Before=robot.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/robot-medir-arranque
+RemainAfterExit=yes
+TimeoutStopSec=3s
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

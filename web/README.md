@@ -23,7 +23,7 @@ Teléfono
              librobot.so
       +----------+----------+---------+
       |          |          |         |
-   motores    sensores     LEDs      audio
+   motores     HC-SR04     LEDs      audio
 ```
 
 `httpd` sirve la interfaz. El CGI funciona como puerta de entrada HTTP y un proceso
@@ -36,7 +36,7 @@ Esto evita inicializar/cerrar GPIO, PWM, sensores y audio en cada petición CGI.
 - Cambio entre modo autónomo y manual.
 - Control direccional táctil con parada al soltar.
 - Ajuste de velocidad manual.
-- Lectura de los tres sensores de distancia.
+- Lectura del sensor frontal HC-SR04.
 - Estado de los cuatro LEDs.
 - Lista de MP3, play, pausa, stop y volumen.
 - Visualización de la grilla 2D del recorrido.
@@ -77,3 +77,17 @@ El siguiente bloque es implementar:
 5. Receta Yocto para instalar los binarios y `/www`.
 
 El contrato de las operaciones HTTP está definido en `API.md`.
+
+
+## Sensor de proximidad
+
+El panel muestra una unica lectura frontal proveniente del HC-SR04. La respuesta de estado esperada por el frontend usa `sensors.front`.
+
+## Levantando el servidor web
+
+Para que el servidor wev entre en ejecución tenemos que ingresar a web/www y usar el comando:
+
+`python3 -m http.server 5500 --bind 0.0.0.0`
+
+
+Es importante recalcar que el ejemplo del comando usamos el puerto `5500` este puerto puede cambiarse pero hay que asegurar que el backend, al empezar a ejecutarse, **permita conexiones desde el nuevo puerto** para evitar errores de CORS.

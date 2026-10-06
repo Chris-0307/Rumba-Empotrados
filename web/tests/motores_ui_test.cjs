@@ -1,0 +1,33 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+const elements=new Map();const e=id=>{if(!elements.has(id))elements.set(id,{id,value:'30',textContent:'',disabled:false,style:{},classList:{add(){},remove(){},toggle(){}},addEventListener(){},setAttribute(){},removeAttribute(){},closest(){return this;},append(){},hidden:false});return elements.get(id);};
+const ctx=vm.createContext({document:{getElementById:e,querySelectorAll:()=>[],addEventListener(){}},window:{addEventListener(){}},setInterval,clearInterval,setTimeout,clearTimeout,console});
+vm.runInContext(fs.readFileSync(require('path').join(__dirname,'../www/js/app.js'),'utf8'),ctx);
+(async()=>{
+const result=await vm.runInContext(`(async()=>{
+ let calls=[],pending=[];
+ apiRequest=(path,method,body)=>new Promise((resolve,reject)=>{calls.push({path,method,body});pending.push({resolve,reject});});
+ refreshState=async()=>{};
+ loggedIn=true;currentMode='manual';floorBlocked=false;motorReady=true;
+ ui.leftSpeedSlider.value='40';ui.rightSpeedSlider.value='60';motorDirty=true;motorRevision++;
+ const saving=saveMotorSettings();
+ ui.leftSpeedSlider.value='35';motorRevision++;
+ pending.shift().resolve({left_speed:40,right_speed:60,turn_left_speed:33,turn_right_speed:50});
+ await new Promise(r=>setTimeout(r,0));
+ if(calls.length!==2 || calls[1].body.left_speed!==35)throw Error('Escrituras no serializadas');
+ pending.shift().resolve({left_speed:35,right_speed:60,turn_left_speed:29,turn_right_speed:50});await saving;
+ if(motorDirty)throw Error('No confirmó ajuste');
+ const polling=readMotorSettings();
+ motorDirty=true;motorRevision++;ui.leftSpeedSlider.value='33';
+ pending.shift().resolve({left_speed:35,right_speed:60,turn_left_speed:29,turn_right_speed:50});await polling;
+ if(ui.leftSpeedSlider.value!=='33')throw Error('Poll pisó edición');
+ calls=[];pending=[];
+ const movement=startMovement('forward');
+ const stopping=stopMovement();
+ const settingsRequest=pending.shift(),stopRequest=pending.shift();
+ stopRequest.resolve({});settingsRequest.resolve({left_speed:33,right_speed:60,turn_left_speed:28,turn_right_speed:50});
+ await Promise.all([movement,stopping]);
+ if(calls.some(c=>c.path==='/api/move' && c.body.direction==='forward'))throw Error('Orden tardía después de soltar');
+ return 'OK: cambios serializados, poll no pisa edición y soltar durante guardado no arranca movimiento.';
+})()`,ctx);
+console.log(result);
+})().catch(err=>{console.error(err);process.exit(1);});

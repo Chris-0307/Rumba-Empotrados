@@ -1,6 +1,6 @@
 "use strict";
 
-const API = "/cgi-bin/robot_api.cgi";
+
 const POLL_STATE_MS = 600;
 const POLL_MAP_MS = 1200;
 
@@ -10,6 +10,13 @@ const ui = {
   loginView: $("loginView"),
   dashboardView: $("dashboardView"),
   loginForm: $("loginForm"),
+  loginTab: $("loginTab"), registerTab: $("registerTab"),
+  authSubmit: $("authSubmit"), authDescription: $("authDescription"),
+  confirmPasswordGroup: $("confirmPasswordGroup"),
+  confirmPassword: $("confirmPassword"), sessionUser: $("sessionUser"),
+  sensorFloor: $("sensorFloor"), ledFloor: $("ledFloor"),
+  floorState: $("floorState"), floorHelp: $("floorHelp"),
+  floorResetButton: $("floorResetButton"),
   loginError: $("loginError"),
   raspberryIp: $("raspberryIp"),
   raspberryPort: $("raspberryPort"),
@@ -20,15 +27,16 @@ const ui = {
   connectionDot: $("connectionDot"),
   logoutButton: $("logoutButton"),
   modeBadge: $("modeBadge"),
+  navigationPanel: $("navigationPanel"), navigationStatus: $("navigationStatus"),
+  cycleUnlimited: $("cycleUnlimited"), cycleDuration: $("cycleDuration"), cycleStatus: $("cycleStatus"),
+  automaticStopButton: $("automaticStopButton"),
   autonomousModeButton: $("autonomousModeButton"),
   manualModeButton: $("manualModeButton"),
   manualControlCard: $("manualControlCard"),
-  speedSlider: $("speedSlider"),
-  speedValue: $("speedValue"),
+  leftSpeedSlider: $("leftSpeedSlider"), rightSpeedSlider: $("rightSpeedSlider"),
+  leftSpeedValue: $("leftSpeedValue"), rightSpeedValue: $("rightSpeedValue"), motorSettingsStatus: $("motorSettingsStatus"),
   stopButton: $("stopButton"),
   sensorFront: $("sensorFront"),
-  sensorLeft: $("sensorLeft"),
-  sensorRight: $("sensorRight"),
   ledPower: $("ledPower"),
   ledAutonomous: $("ledAutonomous"),
   ledManual: $("ledManual"),
@@ -36,54 +44,83 @@ const ui = {
   songSelect: $("songSelect"),
   playButton: $("playButton"),
   pauseButton: $("pauseButton"),
+  audioNextButton: $("audioNextButton"),
   audioStopButton: $("audioStopButton"),
   volumeSlider: $("volumeSlider"),
   volumeValue: $("volumeValue"),
   audioStatus: $("audioStatus"),
+  suctionState: $("suctionState"), suctionOnButton: $("suctionOnButton"),
+  suctionOffButton: $("suctionOffButton"),
   mapCanvas: $("mapCanvas")
 };
 
+let apiBase = "";
+let authToken = "";
 let loggedIn = false;
 let currentMode = null;
 let heldDirection = null;
 let stateTimer = null;
 let mapTimer = null;
+let songs = [];
+let authMode = "login";
+let floorBlocked = true;
+let sessionName = "";
+let authPending = false;
+let suctionRequested = false;
+let suctionPending = false;
+let suctionRenewal = null;
+let motorReady=false, motorDirty=false, motorRevision=0, motorSave=null;
+let manualMoveRequest=null, manualStopping=false;
 
-function formBody(values) {
-  return new URLSearchParams(values).toString();
+function getApiBase() {
+  const ip = ui.raspberryIp.value.trim();
+  const port = ui.raspberryPort.value.trim();
+
+  if (!ip || !port) {
+    throw new Error("Falta la IP o el puerto de la Raspberry");
+  }
+
+  return `http://${ip}:${port}`;
 }
 
-async function apiGet(action) {
-  const response = await fetch(`${API}?action=${encodeURIComponent(action)}`, {
-    cache: "no-store",
-    credentials: "same-origin"
-  });
-  return parseResponse(response);
-}
+async function apiRequest(path, method = "GET", body = null, useAuth = true, keepalive = false) {
+  const headers = {};
 
-async function apiPost(action, values = {}, keepalive = false) {
-  const response = await fetch(API, {
-    method: "POST",
-    credentials: "same-origin",
+  if (body !== null) {
+    headers["Content-Type"] = "application/json";
+  }
+
+  if (useAuth && authToken) {
+    headers.Authorization = `Bearer ${authToken}`;
+  }
+
+  const response = await fetch(`${apiBase}${path}`, {
+    method,
+    headers,
     cache: "no-store",
     keepalive,
-    headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
-    body: formBody({ action, ...values })
+    body: body !== null ? JSON.stringify(body) : undefined
   });
-  return parseResponse(response);
-}
 
-async function parseResponse(response) {
   let data = {};
-  try { data = await response.json(); } catch (_) { /* respuesta no JSON */ }
+  try {
+    data = await response.json();
+  } catch (_) {
+    // La API normalmente responde JSON.
+  }
 
-  if (response.status === 401) {
+  if (response.status === 401 && useAuth) {
+    authToken = "";
     showLogin();
-    throw new Error(data.error || "Sesión no válida");
+    throw new Error("Sesión no válida");
   }
-  if (!response.ok || data.ok === false) {
-    throw new Error(data.error || `Error HTTP ${response.status}`);
+
+  if (!response.ok) {
+    const code = data.error || `Error HTTP ${response.status}`;
+    const messages = { cycle_completed: "El ciclo terminó. Inicia otro ciclo o cambia a manual para activar la aspiración.", invalid_duration_seconds: "Usa una duración entera entre 1 y 86400 segundos.", suction_unavailable: "Aspiración no disponible. Revisa la versión de librobot y GPIO13.", floor_safety_blocked: "Movimiento bloqueado por el sensor de suelo. Revisa su estado y confirma la recuperación.", invalid_credentials: "Usuario o contraseña incorrectos.", username_exists: "Ese usuario ya existe. Inicia sesión o utiliza otro nombre.", manual_mode_required: "Selecciona el modo manual para mover el robot." };
+    throw new Error(messages[code] || code);
   }
+
   return data;
 }
 
@@ -103,8 +140,16 @@ function clearError() {
 }
 
 function showLogin() {
+  suctionRequested = false;
+  motorReady=false;motorDirty=false;
   loggedIn = false;
   stopPolling();
+  heldDirection = null;
+  floorBlocked = true;
+  authToken = "";
+  sessionName = "";
+  ui.sessionUser.textContent = "";
+  document.querySelectorAll(".move-button").forEach(button => button.classList.remove("pressed"));
   ui.dashboardView.hidden = true;
   ui.loginView.hidden = false;
 }
@@ -113,8 +158,17 @@ async function showDashboard() {
   loggedIn = true;
   ui.loginView.hidden = true;
   ui.dashboardView.hidden = false;
-  await Promise.allSettled([refreshState(), refreshMap(), loadSongs()]);
-  startPolling();
+  ui.sessionUser.textContent = sessionName;
+  renderSensors({});
+  clearError();
+
+  await Promise.allSettled([
+    refreshState(),
+    refreshMap(),
+    loadSongs()
+  ]);
+
+  if (loggedIn) startPolling();
 }
 
 function startPolling() {
@@ -131,78 +185,287 @@ function stopPolling() {
 }
 
 function formatDistance(value) {
-  return Number.isFinite(Number(value)) && Number(value) >= 0 ? Number(value).toFixed(1) : "--";
+  if (value === null || value === undefined || value === "") return "--";
+  if (!Number.isFinite(Number(value)) || Number(value) < 0) {
+    return "--";
+  }
+  return Number(value).toFixed(1);
 }
 
 function setLed(element, on, alert = false) {
   element.classList.toggle("on", Boolean(on));
-  element.classList.toggle("alert", alert);
+  element.classList.toggle("alert", Boolean(on) && alert);
 }
 
-function renderState(state) {
-  currentMode = state.mode || "unknown";
-  const manual = currentMode === "manual";
+function songTitle(songId) {
+  const song = songs.find((item) => Number(item.id) === Number(songId));
+  return song ? song.title : `Canción ${songId}`;
+}
 
-  ui.modeBadge.textContent = manual ? "MANUAL" : currentMode === "autonomous" ? "AUTÓNOMO" : "--";
+function renderMode(modeData) {
+  currentMode = modeData.mode || "unknown";
+  const manual = currentMode === "manual";
+  const automatic = currentMode === "automatic";
+
+  ui.navigationPanel.hidden = !automatic;
+  const navigation = modeData.navigation || {};
+  const states = { idle: "Inactivo", waiting: "Esperando sensores", forward: "Avanzando", braking: "Parando ante un obstáculo", turn_left: "Rebote: girando a la izquierda", turn_right: "Rebote: girando a la derecha", paused: "Automático pausado" };
+  const reasons = { zero_speed: "ambos motores en 0 %; ajusta y pulsa Autónomo para reanudar", cycle_completed: "ciclo finalizado", cycle_ending: "deteniendo el ciclo", waiting_floor: "esperando piso confirmado", floor_safety_blocked: "protección de suelo", waiting_front: "sin lectura frontal válida", user_stop: "parada solicitada", turn_timeout: "sin salida confirmada dentro del tiempo máximo de giro", searching_clearance: "buscando espacio libre", confirming_clearance: "confirmando tres lecturas mayores de 25 cm", checking_front: "comprobando el frente después de parar", motor_error: "error del controlador de motores", clock_error: "error de temporización" };
+  ui.navigationStatus.textContent = (states[navigation.state] || "Estado automático no disponible") + (reasons[navigation.reason] ? ` · ${reasons[navigation.reason]}` : "");
+
+  const cycle = modeData.cycle || {};
+  const cycleMessages = { completed: "Ciclo finalizado · tiempo cumplido", finishing: "Tiempo cumplido · deteniendo motores y aspiración", cancelled: "Ciclo detenido por el usuario" };
+  ui.cycleStatus.textContent = cycleMessages[cycle.status] || (cycle.status === "running" ? (cycle.duration_seconds > 0 ? `Tiempo restante: ${cycle.remaining_seconds} s` : "Ciclo sin límite de tiempo") : "");
+  if (automatic && (cycle.status === "completed" || cycle.status === "finishing")) suctionRequested = false;
+  ui.modeBadge.textContent = manual ? "MANUAL" : automatic ? "AUTÓNOMO" : "--";
   ui.manualModeButton.classList.toggle("active", manual);
-  ui.autonomousModeButton.classList.toggle("active", currentMode === "autonomous");
+  ui.autonomousModeButton.classList.toggle("active", automatic);
 
   ui.manualControlCard.style.opacity = manual ? "1" : ".55";
-  document.querySelectorAll(".move-button").forEach((button) => {
-    button.disabled = !manual;
+  updateMovementButtons();
+
+}
+
+function updateMovementButtons() {
+  document.querySelectorAll(".move-button").forEach(button => {
+    button.disabled = button.id === "stopButton" ? false : currentMode !== "manual" || floorBlocked || !motorReady || manualStopping;
   });
+}
 
-  const sensors = state.sensors || {};
-  ui.sensorFront.textContent = formatDistance(sensors.front);
-  ui.sensorLeft.textContent = formatDistance(sensors.left);
-  ui.sensorRight.textContent = formatDistance(sensors.right);
+function renderSensors(sensors) {
+  ui.sensorFront.textContent = formatDistance(sensors.front_cm);
+  ui.sensorFloor.textContent = formatDistance(sensors.floor_cm);
+  const hasFloorData = Object.prototype.hasOwnProperty.call(sensors, "floor_cm") &&
+    Object.prototype.hasOwnProperty.call(sensors, "floor_state");
+  const hasFrontData = Object.prototype.hasOwnProperty.call(sensors, "front_cm");
+  const state = hasFloorData ? (sensors.floor_state || "unknown") : hasFrontData ? "unsupported" : "unknown";
+  const labels = { present: "Piso presente", cliff: "Posible borde", sensor_error: "Error / sin eco", stale: "Lectura vencida", warming_up: "Confirmando piso", unconfigured: "Falta calibración", unsupported: "La API no devuelve datos de suelo", unknown: "Sin lectura de suelo" };
+  ui.floorState.textContent = labels[state] || "Estado no disponible";
+  ui.floorState.dataset.state = state;
+  floorBlocked = sensors.movement_blocked !== false;
+  const warning = !["present", "cliff", "sensor_error"].includes(state) || (state === "present" && floorBlocked);
+  const present = state === "present" && !floorBlocked;
+  const danger = state === "cliff" || state === "sensor_error";
+  setLed(ui.ledFloor, present || danger, danger);
+  ui.ledFloor.classList.toggle("warning", warning);
+  ui.ledFloor.setAttribute("aria-label", ui.floorState.textContent);
+  ui.ledFloor.title = ui.floorState.textContent;
+  const help = {
+    present: sensors.floor_latched ? "Piso confirmado. Pulsa Parar / confirmar recuperación antes de volver a mover el robot." : "Piso confirmado por el robot.",
+    cliff: "Posible desnivel. Recoloca el robot sobre piso firme antes de confirmar la recuperación.",
+    sensor_error: "El servidor no recibe un eco válido del sensor de suelo. Revisa su conexión.",
+    stale: "La lectura está vencida. Espera una lectura válida antes de mover el robot.",
+    warming_up: "Confirmando tres lecturas consecutivas de piso.",
+    unconfigured: "El sensor puede estar leyendo, pero falta configurar su umbral en el servidor.",
+    unsupported: "La respuesta de /api/sensors contiene el frontal, pero no los campos del suelo. Comprueba que esté ejecutándose el servidor actualizado.",
+    unknown: "Todavía no hay datos de suelo disponibles. Comprueba la conexión con el robot."
+  };
+  const limit = formatDistance(sensors.floor_max_cm);
+  ui.floorHelp.textContent = (help[state] || "Estado de suelo no reconocido.") + (limit !== "--" ? ` Umbral: ${limit} cm.` : "");
+  if (floorBlocked && heldDirection) {
+    heldDirection = null;
+    document.querySelectorAll(".move-button").forEach(button => button.classList.remove("pressed"));
+  }
+  updateMovementButtons();
+}
 
-  const leds = state.leds || {};
-  setLed(ui.ledPower, leds.power);
-  setLed(ui.ledAutonomous, leds.autonomous);
-  setLed(ui.ledManual, leds.manual);
-  setLed(ui.ledObstacle, leds.obstacle, true);
+function renderSuction(data) {
+  const available = data.available === true;
+  ui.suctionState.textContent = !available ? "Aspiración no disponible" : data.enabled ? "Aspiración encendida · orden al circuito" : "Aspiración apagada";
+  ui.suctionOnButton.disabled = !available || suctionPending;
+  ui.suctionOffButton.disabled = suctionPending;
+}
+async function setSuction(enabled) {
+  if (!loggedIn || suctionPending) return;
+  suctionPending = true;
+  suctionRequested = false;
+  ui.suctionOnButton.disabled = true;
+  ui.suctionOffButton.disabled = true;
+  try {
+    if (suctionRenewal) await suctionRenewal.catch(() => {});
+    const data = await apiRequest("/api/suction", "PUT", { action: enabled ? "on" : "off" });
+    suctionRequested = enabled && data.enabled === true;
+    renderSuction(data);
+    sectionStatus("suctionAvailability", ui.suctionState, "");
+  } catch (error) {
+    renderSuction({});
+    sectionStatus("suctionAvailability", ui.suctionState, error.message);
+  } finally {
+    suctionPending = false;
+    ui.suctionOffButton.disabled = false;
+    if (suctionRequested) ui.suctionOnButton.disabled = false;
+  }
+}
 
-  const audio = state.audio || {};
+function renderMotors(data) {
+  if (!Number.isInteger(data.left_speed) || !Number.isInteger(data.right_speed)) throw new Error("Actualiza el servidor para controlar cada motor.");
+  motorReady=true;
+  ui.leftSpeedSlider.disabled=ui.rightSpeedSlider.disabled=false;
+  if (!motorDirty && !motorSave) {
+    ui.leftSpeedSlider.value=data.left_speed;ui.rightSpeedSlider.value=data.right_speed;
+    ui.leftSpeedValue.textContent=data.left_speed;ui.rightSpeedValue.textContent=data.right_speed;
+    ui.motorSettingsStatus.textContent=`Giro automático: izquierdo ${data.turn_left_speed}% · derecho ${data.turn_right_speed}%`;
+  }
+  updateMovementButtons();
+}
+async function readMotorSettings() {
+  const revision=motorRevision,busy=motorDirty || !!motorSave;
+  const data=await apiRequest("/api/motors");
+  if (loggedIn && revision===motorRevision && !busy && !motorDirty && !motorSave) renderMotors(data);
+}
+async function saveMotorSettings() {
+  if (motorSave) {await motorSave;if (motorDirty) return saveMotorSettings();return;}
+  if (!motorDirty) return;
+  const revision=motorRevision;
+  const body={left_speed:Number(ui.leftSpeedSlider.value),right_speed:Number(ui.rightSpeedSlider.value)};
+  motorSave=apiRequest("/api/motors","PUT",body);
+  try {
+    const data=await motorSave;
+    if (revision===motorRevision) {motorDirty=false;ui.motorSettingsStatus.textContent=`Giro automático: izquierdo ${data.turn_left_speed}% · derecho ${data.turn_right_speed}%`;}
+  } finally {motorSave=null;}
+  if (motorDirty) return saveMotorSettings();
+}
+function renderIndicators(indicators) {
+  setLed(ui.ledPower, indicators.system === "functional");
+  setLed(ui.ledAutonomous, indicators.mode === "automatic");
+  setLed(ui.ledManual, indicators.mode === "manual");
+  setLed(ui.ledObstacle, indicators.obstacle === true, true);
+
+}
+
+function renderAudio(audio) {
   if (Number.isFinite(Number(audio.volume))) {
     ui.volumeSlider.value = audio.volume;
     ui.volumeValue.textContent = audio.volume;
   }
-  if (audio.file) {
-    ui.audioStatus.textContent = `${audio.state || "playing"}: ${audio.file}`;
+
+  if (Number(audio.song_id) > 0) {
+    ui.songSelect.value = String(audio.song_id);
+    const title = songTitle(audio.song_id);
+
+    if (audio.state === "playing") {
+      ui.audioStatus.textContent = `Reproduciendo: ${title}`;
+    } else if (audio.state === "paused") {
+      ui.audioStatus.textContent = `Pausado: ${title}`;
+    } else {
+      ui.audioStatus.textContent = `Finalizado / detenido: ${title}`;
+    }
   } else {
-    ui.audioStatus.textContent = audio.state === "paused" ? "Pausado" : "Sin reproducción";
+    ui.audioStatus.textContent = "Sin reproducción";
   }
 }
 
+// Cada sección conserva su actualización independiente; modo y suelo habilitan movimiento.
+function sectionStatus(id, anchor, message) {
+  let element = document.getElementById(id);
+  if (!element) {
+    element = document.createElement("p");
+    element.id = id;
+    element.className = "muted";
+    element.setAttribute("role", "status");
+    anchor.closest(".card").append(element);
+  }
+  element.textContent = message;
+  element.hidden = !message;
+}
+
+let refreshingState = false;
+let refreshingMap = false;
+
 async function refreshState() {
-  if (!loggedIn) return;
+  if (!loggedIn || refreshingState) return;
+  refreshingState = true;
   try {
-    const data = await apiGet("state");
-    setConnection(true);
-    clearError();
-    renderState(data);
-  } catch (error) {
-    setConnection(false);
-    if (loggedIn) showError(error.message);
+    await Promise.allSettled([
+      readMotorSettings().catch(error => {
+        if (!loggedIn) return;
+        motorReady=false;ui.leftSpeedSlider.disabled=ui.rightSpeedSlider.disabled=true;
+        ui.motorSettingsStatus.textContent=error.message;updateMovementButtons();
+      }),
+      apiRequest("/api/mode").then((data) => {
+        if (!loggedIn) return;
+        renderMode(data);
+        setConnection(true);
+        sectionStatus("modeStatus", ui.modeBadge, "");
+      }).catch((error) => {
+        if (!loggedIn) return;
+        renderMode({ mode: "unknown" });
+        setConnection(false);
+        sectionStatus("modeStatus", ui.modeBadge, `Modo no disponible: ${error.message}`);
+      }),
+      apiRequest("/api/sensors").then((data) => {
+        if (!loggedIn) return;
+        renderSensors(data);
+        sectionStatus("sensorStatus", ui.sensorFront, "");
+      }).catch(() => {
+        if (!loggedIn) return;
+        renderSensors({});
+        sectionStatus("sensorStatus", ui.sensorFront, "Sensor no disponible");
+      }),
+      apiRequest("/api/indicators").then((data) => {
+        if (!loggedIn) return;
+        renderIndicators(data);
+        sectionStatus("indicatorStatus", ui.ledPower, "");
+      }).catch(() => {
+        if (!loggedIn) return;
+        renderIndicators({});
+        sectionStatus("indicatorStatus", ui.ledPower, "Indicadores no disponibles");
+      }),
+      apiRequest("/api/suction").then(async (data) => {
+        if (!loggedIn || suctionPending) return;
+        renderSuction(data);
+        if (data.enabled !== true) suctionRequested = false;
+        if (suctionRequested) {
+          suctionRenewal = apiRequest("/api/suction", "PUT", { action: "on" });
+          let renewed;
+          try { renewed = await suctionRenewal; } finally { suctionRenewal = null; }
+          if (loggedIn && !suctionPending && suctionRequested) renderSuction(renewed);
+        }
+        sectionStatus("suctionAvailability", ui.suctionState, "");
+      }).catch((error) => {
+        if (!loggedIn) return;
+        suctionRequested = false;
+        renderSuction({});
+        sectionStatus("suctionAvailability", ui.suctionState, `Aspiración no disponible: ${error.message}`);
+      }),
+      apiRequest("/api/audio/state").then((data) => {
+        if (!loggedIn) return;
+        renderAudio(data);
+        sectionStatus("audioAvailability", ui.audioStatus, "");
+      }).catch(() => {
+        if (!loggedIn) return;
+        ui.audioStatus.textContent = "Estado de audio no disponible";
+        sectionStatus("audioAvailability", ui.audioStatus, "Audio no disponible");
+      })
+    ]);
+  } finally {
+    refreshingState = false;
   }
 }
 
 async function refreshMap() {
-  if (!loggedIn) return;
+  if (!loggedIn || refreshingMap) return;
+  refreshingMap = true;
   try {
-    const data = await apiGet("map");
+    const data = await apiRequest("/api/map");
+    if (!loggedIn) return;
     drawMap(data);
-  } catch (error) {
-    if (loggedIn) showError(error.message);
+    sectionStatus("mapStatus", ui.mapCanvas, "");
+  } catch (_) {
+    if (!loggedIn) return;
+    drawMap({});
+    sectionStatus("mapStatus", ui.mapCanvas, "Mapa no disponible");
+  } finally {
+    refreshingMap = false;
   }
 }
 
 async function loadSongs() {
   try {
-    const data = await apiGet("audio_list");
-    const songs = Array.isArray(data.songs) ? data.songs : [];
+    const data = await apiRequest("/api/audio/songs");
+    songs = Array.isArray(data) ? data : [];
     ui.songSelect.innerHTML = "";
+
     if (!songs.length) {
       const option = document.createElement("option");
       option.textContent = "No hay MP3 disponibles";
@@ -210,10 +473,11 @@ async function loadSongs() {
       ui.songSelect.append(option);
       return;
     }
+
     for (const song of songs) {
       const option = document.createElement("option");
-      option.value = song;
-      option.textContent = song;
+      option.value = song.id;
+      option.textContent = song.title;
       ui.songSelect.append(option);
     }
   } catch (error) {
@@ -231,6 +495,7 @@ function drawMap(map) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.fillStyle = "#020617";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
+
   if (width <= 0 || height <= 0) return;
 
   const cell = Math.min(canvas.width / width, canvas.height / height);
@@ -244,17 +509,30 @@ function drawMap(map) {
 
   for (let y = 0; y < height; y += 1) {
     for (let x = 0; x < width; x += 1) {
-      const value = cells[y * width + x] || "unknown";
+      let value = "unknown";
+
+      if (Array.isArray(cells[y])) {
+        value = cells[y][x] || "unknown";
+      } else {
+        value = cells[y * width + x] || "unknown";
+      }
+
       ctx.fillStyle = colors[value] || colors.unknown;
-      ctx.fillRect(ox + x * cell, oy + y * cell, Math.max(1, cell - 1), Math.max(1, cell - 1));
+      ctx.fillRect(
+        ox + x * cell,
+        oy + y * cell,
+        Math.max(1, cell - 1),
+        Math.max(1, cell - 1)
+      );
     }
   }
 
   if (map.robot && Number.isFinite(Number(map.robot.x)) && Number.isFinite(Number(map.robot.y))) {
-    const cx = ox + (Number(map.robot.x) + .5) * cell;
-    const cy = oy + (Number(map.robot.y) + .5) * cell;
+    const cx = ox + (Number(map.robot.x) + 0.5) * cell;
+    const cy = oy + (Number(map.robot.y) + 0.5) * cell;
+
     ctx.beginPath();
-    ctx.arc(cx, cy, Math.max(3, cell * .34), 0, Math.PI * 2);
+    ctx.arc(cx, cy, Math.max(3, cell * 0.34), 0, Math.PI * 2);
     ctx.fillStyle = "#22c55e";
     ctx.fill();
   }
@@ -262,8 +540,19 @@ function drawMap(map) {
 
 async function setMode(mode) {
   try {
-    if (heldDirection) await stopMovement();
-    await apiPost("set_mode", { mode });
+    if (!motorReady) throw new Error("Espera a que se lean los ajustes de motores.");
+    await saveMotorSettings();
+    if (heldDirection) {
+      await stopMovement();
+    }
+
+    const duration = mode === "automatic" && !ui.cycleUnlimited.checked ? Number(ui.cycleDuration.value) : 0;
+    if (mode === "automatic" && !ui.cycleUnlimited.checked && (!Number.isInteger(duration) || duration < 1 || duration > 86400)) {
+      throw new Error("Usa una duración entera entre 1 y 86400 segundos.");
+    }
+    const data = await apiRequest("/api/mode", "PUT", { mode, duration_seconds: duration });
+    renderMode(data);
+    clearError();
     await refreshState();
   } catch (error) {
     showError(error.message);
@@ -271,11 +560,16 @@ async function setMode(mode) {
 }
 
 async function startMovement(direction, button) {
-  if (currentMode !== "manual" || heldDirection) return;
+  if (!loggedIn || currentMode !== "manual" || floorBlocked || !motorReady || manualStopping || heldDirection) return;
+
   heldDirection = direction;
   button?.classList.add("pressed");
+
   try {
-    await apiPost("move", { direction, speed: ui.speedSlider.value });
+    await saveMotorSettings();
+    if (heldDirection !== direction || !loggedIn || currentMode !== "manual" || floorBlocked) return;
+    manualMoveRequest=apiRequest("/api/move","POST",{direction});
+    try {await manualMoveRequest;} finally {manualMoveRequest=null;}
   } catch (error) {
     heldDirection = null;
     button?.classList.remove("pressed");
@@ -284,44 +578,55 @@ async function startMovement(direction, button) {
 }
 
 async function stopMovement(keepalive = false) {
-  document.querySelectorAll(".move-button.pressed").forEach((button) => button.classList.remove("pressed"));
-  if (!heldDirection && !keepalive) {
-    try { await apiPost("stop"); } catch (_) { /* mantener parada como mejor esfuerzo */ }
-    return;
-  }
+  if (manualStopping) return;
+  manualStopping=true;updateMovementButtons();
+  document.querySelectorAll(".move-button.pressed").forEach((button) => {
+    button.classList.remove("pressed");
+  });
+
   heldDirection = null;
+
   try {
-    await apiPost("stop", {}, keepalive);
+    if (manualMoveRequest) await manualMoveRequest.catch(() => {});
+    await apiRequest("/api/move", "POST", {
+      direction: "stop",
+      speed: 0
+    }, true, keepalive);
+    if (!keepalive && loggedIn) { clearError(); await refreshState(); }
   } catch (error) {
     if (!keepalive) showError(error.message);
-  }
+  } finally {manualStopping=false;updateMovementButtons();}
 }
 
-function emergencyStopBeacon() {
-  if (!loggedIn) return;
-  const body = new Blob([formBody({ action: "stop" })], { type: "application/x-www-form-urlencoded;charset=UTF-8" });
-  navigator.sendBeacon(API, body);
+function emergencyStop() {
+  suctionRequested = false;
+  if (!loggedIn || !authToken || !apiBase) return;
+
+  fetch(`${apiBase}/api/suction`, {
+    method: "PUT", keepalive: true,
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${authToken}` },
+    body: JSON.stringify({ action: "off" })
+  }).catch(() => {});
+
+  fetch(`${apiBase}/api/move`, {
+    method: "POST",
+    keepalive: true,
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${authToken}`
+    },
+    body: JSON.stringify({ direction: "stop", speed: 0 })
+  }).catch(() => {});
+
   heldDirection = null;
 }
 
 ui.testConnectionButton.addEventListener("click", async () => {
-  const ip = ui.raspberryIp.value.trim();
-  const port = ui.raspberryPort.value.trim();
-
-  if (!ip) {
-    ui.testConnectionResult.textContent = "Escribí la IP de la Raspberry";
-    return;
-  }
-
-  if (!port) {
-    ui.testConnectionResult.textContent = "Escribí el puerto";
-    return;
-  }
-
   ui.testConnectionResult.textContent = "Probando conexión...";
 
   try {
-    const response = await fetch(`http://${ip}:${port}/api/status`, {
+    const testBase = getApiBase();
+    const response = await fetch(`${testBase}/api/status`, {
       cache: "no-store"
     });
 
@@ -331,41 +636,106 @@ ui.testConnectionButton.addEventListener("click", async () => {
       throw new Error(`HTTP ${response.status}`);
     }
 
-    ui.testConnectionResult.textContent = JSON.stringify(data);
+    if (data.status !== "ok") {
+      throw new Error("Respuesta inesperada");
+    }
+
+    apiBase = testBase;
+    ui.testConnectionResult.textContent = "Conexión OK";
   } catch (error) {
     ui.testConnectionResult.textContent = `Error: ${error.message}`;
   }
 });
 
+function selectAuthMode(mode) {
+  if (authPending) return;
+  authMode = mode;
+  const registering = mode === "register";
+  ui.loginTab.classList.toggle("active", !registering);
+  ui.registerTab.classList.toggle("active", registering);
+  ui.loginTab.setAttribute("aria-pressed", String(!registering));
+  ui.registerTab.setAttribute("aria-pressed", String(registering));
+  ui.authSubmit.textContent = registering ? "Crear cuenta e iniciar sesión" : "Iniciar sesión";
+  ui.authDescription.textContent = registering ? "Crea tu cuenta para acceder al robot." : "Inicia sesión para controlar tu robot.";
+  ui.confirmPasswordGroup.hidden = !registering;
+  ui.confirmPassword.required = registering;
+  ui.confirmPassword.value = "";
+  $("password").autocomplete = registering ? "new-password" : "current-password";
+  $("password").minLength = registering ? 12 : 1;
+  $("username").minLength = registering ? 3 : 1;
+  $("username").maxLength = 32;
+  $("password").maxLength = 120;
+  ui.loginError.hidden = true;
+}
+ui.loginTab.addEventListener("click", () => selectAuthMode("login"));
+ui.registerTab.addEventListener("click", () => selectAuthMode("register"));
+
 ui.loginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
+  if (authPending) return;
   ui.loginError.hidden = true;
-  const data = new FormData(ui.loginForm);
+  const form = new FormData(ui.loginForm);
+  const credentials = { username: String(form.get("username") || ""), password: String(form.get("password") || "") };
+  if (authMode === "register" && credentials.password !== ui.confirmPassword.value) {
+    ui.loginError.textContent = "Las contraseñas no coinciden."; ui.loginError.hidden = false; return;
+  }
+  if (authMode === "register" && !/^[A-Za-z0-9_]{3,32}$/.test(credentials.username)) {
+    ui.loginError.textContent = "El usuario debe tener de 3 a 32 letras, números o guiones bajos."; ui.loginError.hidden = false; return;
+  }
+  authPending = true;
+  ui.authSubmit.disabled = true; ui.loginTab.disabled = true; ui.registerTab.disabled = true;
+  ui.authSubmit.textContent = "Conectando…";
+  let created = false;
   try {
-    await apiPost("login", {
-      username: String(data.get("username") || ""),
-      password: String(data.get("password") || "")
-    });
-    ui.loginForm.reset();
+    apiBase = getApiBase();
+    if (authMode === "register") { await apiRequest("/api/auth/register", "POST", credentials, false); created = true; }
+    const data = await apiRequest("/api/auth/login", "POST", credentials, false);
+    authToken = data.token || "";
+    if (!authToken) throw new Error("La API no devolvió un token");
+    sessionName = credentials.username;
+    authMode = "login";
+    $("password").value = ""; ui.confirmPassword.value = "";
     await showDashboard();
   } catch (error) {
-    ui.loginError.textContent = error.message;
+    ui.loginError.textContent = created ? `Cuenta creada. Vuelve a iniciar sesión: ${error.message}` : error.message;
     ui.loginError.hidden = false;
+    if (created) authMode = "login";
+  } finally {
+    authPending = false;
+    ui.authSubmit.disabled = false; ui.loginTab.disabled = false; ui.registerTab.disabled = false;
+    const message = ui.loginError.textContent, hasError = !ui.loginError.hidden;
+    selectAuthMode(authMode);
+    if (hasError) { ui.loginError.textContent = message; ui.loginError.hidden = false; }
   }
 });
 
 ui.logoutButton.addEventListener("click", async () => {
-  emergencyStopBeacon();
-  try { await apiPost("logout"); } catch (_) { /* logout local de todas formas */ }
+  await setSuction(false);
+  try {
+    await apiRequest("/api/move", "POST", { direction: "stop", speed: 0 });
+  } catch (_) {
+    // La parada se intenta antes de cerrar la sesión.
+  }
+
+  try {
+    await apiRequest("/api/auth/logout", "POST", {});
+  } catch (_) {
+    // Si falla el logout remoto, se cierra localmente de todas formas.
+  }
+
+  authToken = "";
   showLogin();
 });
 
-ui.autonomousModeButton.addEventListener("click", () => setMode("autonomous"));
+ui.cycleUnlimited.addEventListener("change", () => { ui.cycleDuration.disabled = ui.cycleUnlimited.checked; });
+
+ui.autonomousModeButton.addEventListener("click", () => setMode("automatic"));
 ui.manualModeButton.addEventListener("click", () => setMode("manual"));
 
-ui.speedSlider.addEventListener("input", () => {
-  ui.speedValue.textContent = ui.speedSlider.value;
-});
+for (const [slider,value] of [[ui.leftSpeedSlider,ui.leftSpeedValue],[ui.rightSpeedSlider,ui.rightSpeedValue]]) {
+  slider.addEventListener("input", () => {value.textContent=slider.value;motorDirty=true;motorRevision++;ui.motorSettingsStatus.textContent="Ajuste pendiente · suelta el slider para aplicar";});
+  slider.addEventListener("change", () => {saveMotorSettings().catch(error => {ui.motorSettingsStatus.textContent=`No se pudo aplicar: ${error.message}`;});});
+}
 
 for (const button of document.querySelectorAll(".move-button[data-direction]")) {
   button.addEventListener("pointerdown", (event) => {
@@ -373,47 +743,78 @@ for (const button of document.querySelectorAll(".move-button[data-direction]")) 
     button.setPointerCapture?.(event.pointerId);
     startMovement(button.dataset.direction, button);
   });
+
   button.addEventListener("pointerup", (event) => {
     event.preventDefault();
     stopMovement();
   });
+
   button.addEventListener("pointercancel", () => stopMovement());
 }
 
 ui.stopButton.addEventListener("click", () => stopMovement());
-window.addEventListener("pointerup", () => { if (heldDirection) stopMovement(); });
-window.addEventListener("pagehide", emergencyStopBeacon);
+ui.automaticStopButton.addEventListener("click", () => stopMovement());
+ui.floorResetButton.addEventListener("click", () => stopMovement());
+window.addEventListener("pointerup", () => {
+  if (heldDirection) stopMovement();
+});
+window.addEventListener("pagehide", emergencyStop);
 document.addEventListener("visibilitychange", () => {
-  if (document.hidden && heldDirection) emergencyStopBeacon();
+  if (document.hidden && (heldDirection || suctionRequested)) emergencyStop();
 });
 
 ui.playButton.addEventListener("click", async () => {
   if (!ui.songSelect.value) return;
-  try { await apiPost("audio_play", { file: ui.songSelect.value }); await refreshState(); }
-  catch (error) { showError(error.message); }
+
+  try {
+    await apiRequest("/api/audio/play", "POST", {
+      song_id: Number(ui.songSelect.value)
+    });
+    await refreshState();
+  } catch (error) {
+    showError(error.message);
+  }
 });
 
 ui.pauseButton.addEventListener("click", async () => {
-  try { await apiPost("audio_pause"); await refreshState(); }
-  catch (error) { showError(error.message); }
+  try {
+    await apiRequest("/api/audio/pause", "POST", {});
+    await refreshState();
+  } catch (error) {
+    showError(error.message);
+  }
 });
 
 ui.audioStopButton.addEventListener("click", async () => {
-  try { await apiPost("audio_stop"); await refreshState(); }
+  try { await apiRequest("/api/audio/stop", "POST", {}); await refreshState(); }
   catch (error) { showError(error.message); }
 });
 
-ui.volumeSlider.addEventListener("input", () => { ui.volumeValue.textContent = ui.volumeSlider.value; });
-ui.volumeSlider.addEventListener("change", async () => {
-  try { await apiPost("audio_volume", { volume: ui.volumeSlider.value }); }
-  catch (error) { showError(error.message); }
-});
-
-(async function boot() {
+ui.audioNextButton.addEventListener("click", async () => {
   try {
-    await apiGet("state");
-    await showDashboard();
-  } catch (_) {
-    showLogin();
+    await apiRequest("/api/audio/next", "POST", {});
+    await refreshState();
+  } catch (error) {
+    showError(error.message);
   }
-})();
+});
+
+ui.volumeSlider.addEventListener("input", () => {
+  ui.volumeValue.textContent = ui.volumeSlider.value;
+});
+
+ui.volumeSlider.addEventListener("change", async () => {
+  try {
+    await apiRequest("/api/audio/volume", "PUT", {
+      volume: Number(ui.volumeSlider.value)
+    });
+  } catch (error) {
+    showError(error.message);
+  }
+});
+
+selectAuthMode("login");
+showLogin();
+
+ui.suctionOnButton.addEventListener("click", () => setSuction(true));
+ui.suctionOffButton.addEventListener("click", () => setSuction(false));

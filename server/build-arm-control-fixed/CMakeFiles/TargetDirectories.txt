@@ -1,0 +1,3 @@
+/home/mano-006/proyectos/Empotrados/robot-api/build-arm-control-fixed/CMakeFiles/robot_server.dir
+/home/mano-006/proyectos/Empotrados/robot-api/build-arm-control-fixed/CMakeFiles/edit_cache.dir
+/home/mano-006/proyectos/Empotrados/robot-api/build-arm-control-fixed/CMakeFiles/rebuild_cache.dir

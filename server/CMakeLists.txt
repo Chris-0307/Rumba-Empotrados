@@ -1,0 +1,27 @@
+cmake_minimum_required(VERSION 3.18)
+project(robot_api C)
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+find_package(Threads REQUIRED)
+find_package(OpenSSL REQUIRED COMPONENTS Crypto)
+find_package(SQLite3 REQUIRED)
+option(ROBOT_WITH_HARDWARE "Enlazar con librobot del SDK" ON)
+add_executable(robot_server
+    src/server.c
+    src/robot_adapter.c
+    src/control_logic.c
+    src/map_estimate.c
+    src/audio_catalog.c
+    src/floor_guard.c
+    src/auto_navigation.c
+)
+if(ROBOT_WITH_HARDWARE)
+    find_path(ROBOT_INCLUDE_DIR robot_hw.h REQUIRED)
+    find_library(ROBOT_LIBRARY NAMES robot REQUIRED)
+    target_include_directories(robot_server PRIVATE ${ROBOT_INCLUDE_DIR})
+    target_compile_definitions(robot_server PRIVATE ROBOT_WITH_HARDWARE=1)
+    target_link_libraries(robot_server PRIVATE ${ROBOT_LIBRARY})
+endif()
+target_include_directories(robot_server PRIVATE include)
+target_compile_options(robot_server PRIVATE -Wall -Wextra -Wpedantic)
+target_link_libraries(robot_server PRIVATE OpenSSL::Crypto SQLite::SQLite3 m Threads::Threads)

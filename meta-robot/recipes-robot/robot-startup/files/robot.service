@@ -1,0 +1,25 @@
+[Unit]
+Description=RumBa - servidor de control
+Wants=robot-wifi.service systemd-networkd.service
+After=robot-wifi.service systemd-networkd.service
+StartLimitIntervalSec=0
+
+[Service]
+Type=exec
+User=root
+WorkingDirectory=/home/root
+EnvironmentFile=/etc/robot/robot.env
+UnsetEnvironment=ROBOT_SIMULATE
+ExecStartPre=/usr/libexec/robot/robot-preflight
+ExecStart=/home/root/robot_server /home/root/robot.db 8080
+Restart=on-failure
+RestartSec=3s
+TimeoutStartSec=75s
+TimeoutStopSec=10s
+KillSignal=SIGTERM
+KillMode=control-group
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

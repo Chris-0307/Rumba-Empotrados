@@ -31,7 +31,7 @@ Todas las demás operaciones deben responder `401` cuando no exista una sesión 
 {
   "ok": true,
   "mode": "manual",
-  "sensors": {"front": 45.2, "left": 78.3, "right": 61.0},
+  "sensors": {"front": 45.2},
   "leds": {"power": true, "autonomous": false, "manual": true, "obstacle": false},
   "audio": {"state": "playing", "file": "music.mp3", "volume": 75}
 }
@@ -89,3 +89,5 @@ Campo `volume`: `0..100`.
 ```
 
 `cells` debe contener `width * height` entradas en orden por filas.
+
+`heading` puede tomar una de ocho orientaciones: `N`, `NE`, `E`, `SE`, `S`, `SW`, `W` o `NW`, ya que cada giro corto del modo autonomo se modela como aproximadamente 45 grados.
