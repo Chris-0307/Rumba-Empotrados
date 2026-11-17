@@ -1,0 +1,224 @@
+NOTE: Resolving any missing task queue dependencies
+
+Build Configuration:
+BB_VERSION           = "2.8.1"
+BUILD_SYS            = "x86_64-linux"
+NATIVELSBSTRING      = "universal"
+TARGET_SYS           = "arm-poky-linux-gnueabi"
+MACHINE              = "raspberrypi4"
+DISTRO               = "poky"
+DISTRO_VERSION       = "5.0.19"
+TUNE_FEATURES        = "arm vfp cortexa7 neon vfpv4 thumb callconvention-hard"
+TARGET_FPU           = "hard"
+meta                 
+meta-poky            
+meta-yocto-bsp       = "HEAD:bb98354685781296e3b3737e7762412100f359c2"
+meta-raspberrypi     = "scarthgap:6ca1f75017cc5d5acdb8bb05634c4bc01fa049fd"
+meta-robot           = "HEAD:bb98354685781296e3b3737e7762412100f359c2"
+meta-oe              = "scarthgap:b5874ea07d69919d9b40d59f2c2f0bbd24bc3259"
+
+Sstate summary: Wanted 378 Local 351 Mirrors 0 Missed 27 Current 2644 (92% match, 99% complete)
+NOTE: Executing Tasks
+NOTE: Running setscene task 2997 of 3022 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta-robot/recipes-robot/robot-startup/robot-startup_1.0.bb:do_package_write_rpm_setscene)
+NOTE: Running setscene task 3015 of 3022 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta/recipes-core/packagegroups/packagegroup-core-boot.bb:do_package_setscene)
+NOTE: recipe robot-startup-1.0-r0: task do_package_write_rpm_setscene: Started
+NOTE: recipe robot-startup-1.0-r0: task do_package_write_rpm_setscene: Succeeded
+NOTE: recipe packagegroup-core-boot-1.0-r0: task do_package_setscene: Started
+NOTE: recipe packagegroup-core-boot-1.0-r0: task do_package_setscene: Succeeded
+NOTE: Setscene tasks completed
+NOTE: Running task 3750 of 6466 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta/recipes-core/busybox/busybox_1.36.1.bb:do_recipe_qa)
+NOTE: recipe busybox-1.36.1-r0: task do_recipe_qa: Started
+NOTE: recipe busybox-1.36.1-r0: task do_recipe_qa: Succeeded
+NOTE: Task /home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta/recipes-core/busybox/busybox_1.36.1.bb:do_recipe_qa unihash changed to 10ecbbced8008c6cb1f9138b8ba7def91ff3681deda1b24291a652661188a2fe
+NOTE: Setscene tasks completed
+NOTE: Running task 4129 of 6466 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta/recipes-core/busybox/busybox_1.36.1.bb:do_fetch)
+NOTE: recipe busybox-1.36.1-r0: task do_fetch: Started
+NOTE: recipe busybox-1.36.1-r0: task do_fetch: Succeeded
+NOTE: Running task 4585 of 6466 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta/recipes-core/busybox/busybox_1.36.1.bb:do_prepare_recipe_sysroot)
+NOTE: Running task 4586 of 6466 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta/recipes-core/busybox/busybox_1.36.1.bb:do_unpack)
+NOTE: recipe busybox-1.36.1-r0: task do_prepare_recipe_sysroot: Started
+NOTE: recipe busybox-1.36.1-r0: task do_unpack: Started
+NOTE: recipe busybox-1.36.1-r0: task do_prepare_recipe_sysroot: Succeeded
+NOTE: recipe busybox-1.36.1-r0: task do_unpack: Succeeded
+NOTE: Running task 4818 of 6466 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta/recipes-core/busybox/busybox_1.36.1.bb:do_collect_spdx_deps)
+NOTE: Running task 4819 of 6466 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta/recipes-core/busybox/busybox_1.36.1.bb:do_patch)
+NOTE: recipe busybox-1.36.1-r0: task do_patch: Started
+NOTE: recipe busybox-1.36.1-r0: task do_collect_spdx_deps: Started
+NOTE: recipe busybox-1.36.1-r0: task do_collect_spdx_deps: Succeeded
+NOTE: Running task 5426 of 6466 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta-robot/recipes-robot/robot-metrics/robot-metrics_1.0.bb:do_recipe_qa)
+NOTE: recipe robot-metrics-1.0-r0: task do_recipe_qa: Started
+NOTE: recipe robot-metrics-1.0-r0: task do_recipe_qa: Succeeded
+NOTE: Running task 5427 of 6466 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta-robot/recipes-robot/robot-metrics/robot-metrics_1.0.bb:do_fetch)
+NOTE: recipe robot-metrics-1.0-r0: task do_fetch: Started
+NOTE: recipe robot-metrics-1.0-r0: task do_fetch: Succeeded
+NOTE: Running task 5428 of 6466 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta-robot/recipes-robot/robot-metrics/robot-metrics_1.0.bb:do_prepare_recipe_sysroot)
+NOTE: recipe robot-metrics-1.0-r0: task do_prepare_recipe_sysroot: Started
+NOTE: recipe robot-metrics-1.0-r0: task do_prepare_recipe_sysroot: Succeeded
+NOTE: Running task 5429 of 6466 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta-robot/recipes-robot/robot-metrics/robot-metrics_1.0.bb:do_unpack)
+NOTE: recipe robot-metrics-1.0-r0: task do_unpack: Started
+NOTE: recipe robot-metrics-1.0-r0: task do_unpack: Succeeded
+NOTE: Running task 5430 of 6466 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta-robot/recipes-robot/robot-metrics/robot-metrics_1.0.bb:do_collect_spdx_deps)
+NOTE: recipe robot-metrics-1.0-r0: task do_collect_spdx_deps: Started
+NOTE: recipe robot-metrics-1.0-r0: task do_collect_spdx_deps: Succeeded
+NOTE: Running task 5431 of 6466 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta-robot/recipes-robot/robot-metrics/robot-metrics_1.0.bb:do_patch)
+NOTE: recipe robot-metrics-1.0-r0: task do_patch: Started
+NOTE: recipe robot-metrics-1.0-r0: task do_patch: Succeeded
+NOTE: Running task 5432 of 6466 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta-robot/recipes-robot/robot-metrics/robot-metrics_1.0.bb:do_populate_lic)
+NOTE: recipe robot-metrics-1.0-r0: task do_populate_lic: Started
+NOTE: recipe robot-metrics-1.0-r0: task do_populate_lic: Succeeded
+NOTE: Running task 5433 of 6466 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta-robot/recipes-robot/robot-metrics/robot-metrics_1.0.bb:do_deploy_source_date_epoch)
+NOTE: recipe busybox-1.36.1-r0: task do_patch: Succeeded
+NOTE: Running task 5434 of 6466 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta/recipes-core/busybox/busybox_1.36.1.bb:do_populate_lic)
+NOTE: recipe robot-metrics-1.0-r0: task do_deploy_source_date_epoch: Started
+NOTE: recipe busybox-1.36.1-r0: task do_populate_lic: Started
+NOTE: recipe busybox-1.36.1-r0: task do_populate_lic: Succeeded
+NOTE: Task /home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta/recipes-core/busybox/busybox_1.36.1.bb:do_populate_lic unihash changed to 546b4d160651d12aa170260c9fdbed1f2b550857dc87feb70a7b089f2657df8c
+NOTE: recipe robot-metrics-1.0-r0: task do_deploy_source_date_epoch: Succeeded
+NOTE: Setscene tasks completed
+NOTE: Running task 5435 of 6466 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta-robot/recipes-robot/robot-metrics/robot-metrics_1.0.bb:do_configure)
+NOTE: Running task 5436 of 6466 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta/recipes-core/busybox/busybox_1.36.1.bb:do_deploy_source_date_epoch)
+NOTE: recipe robot-metrics-1.0-r0: task do_configure: Started
+NOTE: recipe busybox-1.36.1-r0: task do_deploy_source_date_epoch: Started
+NOTE: recipe robot-metrics-1.0-r0: task do_configure: Succeeded
+NOTE: Running task 5437 of 6466 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta-robot/recipes-robot/robot-metrics/robot-metrics_1.0.bb:do_compile)
+NOTE: recipe busybox-1.36.1-r0: task do_deploy_source_date_epoch: Succeeded
+NOTE: Task /home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta/recipes-core/busybox/busybox_1.36.1.bb:do_deploy_source_date_epoch unihash changed to 7e5298115624e927de12f68458f2ed03f9db0fec2e5ecc602454d76842431e1b
+NOTE: Setscene tasks completed
+NOTE: Running task 5438 of 6466 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta/recipes-core/busybox/busybox_1.36.1.bb:do_configure)
+NOTE: recipe robot-metrics-1.0-r0: task do_compile: Started
+NOTE: recipe robot-metrics-1.0-r0: task do_compile: Succeeded
+NOTE: Running task 5439 of 6466 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta-robot/recipes-robot/robot-metrics/robot-metrics_1.0.bb:do_install)
+NOTE: recipe busybox-1.36.1-r0: task do_configure: Started
+NOTE: recipe robot-metrics-1.0-r0: task do_install: Started
+NOTE: recipe robot-metrics-1.0-r0: task do_install: Succeeded
+NOTE: Running task 5440 of 6466 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta-robot/recipes-robot/robot-metrics/robot-metrics_1.0.bb:do_package)
+NOTE: recipe robot-metrics-1.0-r0: task do_package: Started
+NOTE: recipe robot-metrics-1.0-r0: task do_package: Succeeded
+NOTE: Running task 5441 of 6466 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta-robot/recipes-robot/robot-metrics/robot-metrics_1.0.bb:do_packagedata)
+NOTE: recipe robot-metrics-1.0-r0: task do_packagedata: Started
+NOTE: recipe robot-metrics-1.0-r0: task do_packagedata: Succeeded
+NOTE: Running task 5442 of 6466 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta-robot/recipes-robot/robot-metrics/robot-metrics_1.0.bb:do_create_spdx)
+NOTE: recipe robot-metrics-1.0-r0: task do_create_spdx: Started
+NOTE: recipe robot-metrics-1.0-r0: task do_create_spdx: Succeeded
+NOTE: Running task 5443 of 6466 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta-robot/recipes-robot/robot-metrics/robot-metrics_1.0.bb:do_populate_sysroot)
+NOTE: recipe robot-metrics-1.0-r0: task do_populate_sysroot: Started
+NOTE: recipe robot-metrics-1.0-r0: task do_populate_sysroot: Succeeded
+NOTE: Running task 6321 of 6466 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta-robot/recipes-core/images/rumba-complete-image.bb:do_recipe_qa)
+NOTE: recipe rumba-complete-image-1.0-r0: task do_recipe_qa: Started
+NOTE: recipe rumba-complete-image-1.0-r0: task do_recipe_qa: Succeeded
+NOTE: Running noexec task 6322 of 6466 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta-robot/recipes-core/images/rumba-complete-image.bb:do_fetch)
+NOTE: Running task 6323 of 6466 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta-robot/recipes-core/images/rumba-complete-image.bb:do_prepare_recipe_sysroot)
+NOTE: recipe rumba-complete-image-1.0-r0: task do_prepare_recipe_sysroot: Started
+NOTE: recipe rumba-complete-image-1.0-r0: task do_prepare_recipe_sysroot: Succeeded
+NOTE: Running noexec task 6324 of 6466 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta-robot/recipes-core/images/rumba-complete-image.bb:do_unpack)
+NOTE: Running task 6325 of 6466 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta-robot/recipes-core/images/rumba-complete-image.bb:do_collect_spdx_deps)
+NOTE: recipe rumba-complete-image-1.0-r0: task do_collect_spdx_deps: Started
+NOTE: recipe rumba-complete-image-1.0-r0: task do_collect_spdx_deps: Succeeded
+NOTE: Running task 6326 of 6466 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta-robot/recipes-core/images/rumba-complete-image.bb:do_create_spdx)
+NOTE: recipe busybox-1.36.1-r0: task do_configure: Succeeded
+NOTE: Running task 6327 of 6466 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta/recipes-core/busybox/busybox_1.36.1.bb:do_configure_ptest_base)
+NOTE: recipe busybox-1.36.1-r0: task do_configure_ptest_base: Started
+NOTE: recipe rumba-complete-image-1.0-r0: task do_create_spdx: Started
+NOTE: recipe busybox-1.36.1-r0: task do_configure_ptest_base: Succeeded
+NOTE: Running task 6328 of 6466 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta/recipes-core/busybox/busybox_1.36.1.bb:do_compile)
+NOTE: recipe busybox-1.36.1-r0: task do_compile: Started
+NOTE: recipe rumba-complete-image-1.0-r0: task do_create_spdx: Succeeded
+NOTE: Running task 6329 of 6466 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta-robot/recipes-core/images/rumba-complete-image.bb:do_create_runtime_spdx)
+NOTE: recipe rumba-complete-image-1.0-r0: task do_create_runtime_spdx: Started
+NOTE: recipe rumba-complete-image-1.0-r0: task do_create_runtime_spdx: Succeeded
+NOTE: recipe busybox-1.36.1-r0: task do_compile: Succeeded
+NOTE: Running task 6436 of 6466 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta/recipes-core/busybox/busybox_1.36.1.bb:do_compile_ptest_base)
+NOTE: recipe busybox-1.36.1-r0: task do_compile_ptest_base: Started
+NOTE: recipe busybox-1.36.1-r0: task do_compile_ptest_base: Succeeded
+NOTE: Running task 6437 of 6466 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta/recipes-core/busybox/busybox_1.36.1.bb:do_install)
+NOTE: recipe busybox-1.36.1-r0: task do_install: Started
+NOTE: recipe busybox-1.36.1-r0: task do_install: Succeeded
+NOTE: Running task 6438 of 6466 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta/recipes-core/busybox/busybox_1.36.1.bb:do_install_ptest_base)
+NOTE: recipe busybox-1.36.1-r0: task do_install_ptest_base: Started
+NOTE: recipe busybox-1.36.1-r0: task do_install_ptest_base: Succeeded
+NOTE: Running task 6439 of 6466 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta/recipes-core/busybox/busybox_1.36.1.bb:do_package)
+NOTE: Running task 6440 of 6466 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta/recipes-core/busybox/busybox_1.36.1.bb:do_populate_sysroot)
+NOTE: recipe busybox-1.36.1-r0: task do_populate_sysroot: Started
+NOTE: recipe busybox-1.36.1-r0: task do_package: Started
+NOTE: recipe busybox-1.36.1-r0: task do_populate_sysroot: Succeeded
+NOTE: Task /home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta/recipes-core/busybox/busybox_1.36.1.bb:do_populate_sysroot unihash changed to 050d4281f65d6fd8547cf34fd6a1744f79a835d0409c51fb4153524c6c2842fc
+NOTE: recipe busybox-1.36.1-r0: task do_package: Succeeded
+NOTE: Task /home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta/recipes-core/busybox/busybox_1.36.1.bb:do_package unihash changed to 4e6273c5b1e77f1117f85b350591dedf4970c3ddfb20f79a734f6dfec53c46cf
+NOTE: Setscene task /home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta/recipes-core/busybox/busybox_1.36.1.bb:do_packagedata became valid
+NOTE: Setscene task /home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta/recipes-core/packagegroups/packagegroup-core-boot.bb:do_package_write_rpm became valid
+NOTE: Setscene task /home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta/recipes-core/busybox/busybox_1.36.1.bb:do_package_write_rpm became valid
+NOTE: Setscene task /home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta/recipes-core/busybox/busybox_1.36.1.bb:do_package_qa became valid
+NOTE: Setscene task /home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta/recipes-core/packagegroups/packagegroup-core-boot.bb:do_package_qa became valid
+NOTE: Running setscene task 3013 of 3022 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta/recipes-core/busybox/busybox_1.36.1.bb:do_package_write_rpm_setscene)
+NOTE: Running setscene task 3018 of 3022 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta/recipes-core/packagegroups/packagegroup-core-boot.bb:do_package_qa_setscene)
+NOTE: recipe packagegroup-core-boot-1.0-r0: task do_package_qa_setscene: Started
+NOTE: recipe busybox-1.36.1-r0: task do_package_write_rpm_setscene: Started
+NOTE: recipe packagegroup-core-boot-1.0-r0: task do_package_qa_setscene: Succeeded
+NOTE: Running setscene task 3019 of 3022 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta/recipes-core/packagegroups/packagegroup-core-boot.bb:do_package_write_rpm_setscene)
+NOTE: recipe packagegroup-core-boot-1.0-r0: task do_package_write_rpm_setscene: Started
+NOTE: recipe busybox-1.36.1-r0: task do_package_write_rpm_setscene: Succeeded
+NOTE: Running setscene task 3020 of 3022 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta/recipes-core/busybox/busybox_1.36.1.bb:do_package_qa_setscene)
+NOTE: recipe packagegroup-core-boot-1.0-r0: task do_package_write_rpm_setscene: Succeeded
+NOTE: recipe busybox-1.36.1-r0: task do_package_qa_setscene: Started
+NOTE: recipe busybox-1.36.1-r0: task do_package_qa_setscene: Succeeded
+NOTE: Running setscene task 3022 of 3022 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta/recipes-core/busybox/busybox_1.36.1.bb:do_packagedata_setscene)
+NOTE: recipe busybox-1.36.1-r0: task do_packagedata_setscene: Started
+NOTE: recipe busybox-1.36.1-r0: task do_packagedata_setscene: Succeeded
+NOTE: Setscene tasks completed
+NOTE: Running task 6443 of 6466 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta-robot/recipes-robot/robot-metrics/robot-metrics_1.0.bb:do_package_qa)
+NOTE: Running task 6445 of 6466 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta-robot/recipes-robot/robot-metrics/robot-metrics_1.0.bb:do_package_write_rpm)
+NOTE: recipe robot-metrics-1.0-r0: task do_package_qa: Started
+NOTE: recipe robot-metrics-1.0-r0: task do_package_write_rpm: Started
+NOTE: recipe robot-metrics-1.0-r0: task do_package_qa: Succeeded
+NOTE: Running task 6449 of 6466 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta/recipes-core/busybox/busybox_1.36.1.bb:do_create_spdx)
+NOTE: recipe busybox-1.36.1-r0: task do_create_spdx: Started
+NOTE: recipe robot-metrics-1.0-r0: task do_package_write_rpm: Succeeded
+NOTE: recipe busybox-1.36.1-r0: task do_create_spdx: Succeeded
+NOTE: Running task 6450 of 6466 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta/recipes-core/busybox/busybox_1.36.1.bb:do_create_runtime_spdx)
+NOTE: Running task 6451 of 6466 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta-robot/recipes-robot/robot-metrics/robot-metrics_1.0.bb:do_create_runtime_spdx)
+NOTE: recipe robot-metrics-1.0-r0: task do_create_runtime_spdx: Started
+NOTE: recipe busybox-1.36.1-r0: task do_create_runtime_spdx: Started
+NOTE: recipe busybox-1.36.1-r0: task do_create_runtime_spdx: Succeeded
+NOTE: Running task 6452 of 6466 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta/recipes-core/busybox/busybox_1.36.1.bb:do_rm_work)
+NOTE: recipe robot-metrics-1.0-r0: task do_create_runtime_spdx: Succeeded
+NOTE: Running task 6453 of 6466 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta-robot/recipes-robot/robot-metrics/robot-metrics_1.0.bb:do_rm_work)
+NOTE: recipe busybox-1.36.1-r0: task do_rm_work: Started
+NOTE: recipe robot-metrics-1.0-r0: task do_rm_work: Started
+NOTE: recipe robot-metrics-1.0-r0: task do_rm_work: Succeeded
+NOTE: Running task 6454 of 6466 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta-robot/recipes-core/images/rumba-complete-image.bb:do_rootfs)
+NOTE: recipe busybox-1.36.1-r0: task do_rm_work: Succeeded
+NOTE: recipe rumba-complete-image-1.0-r0: task do_rootfs: Started
+NOTE: recipe rumba-complete-image-1.0-r0: task do_rootfs: Succeeded
+NOTE: Running task 6455 of 6466 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta-robot/recipes-core/images/rumba-complete-image.bb:do_flush_pseudodb)
+NOTE: recipe rumba-complete-image-1.0-r0: task do_flush_pseudodb: Started
+NOTE: recipe rumba-complete-image-1.0-r0: task do_flush_pseudodb: Succeeded
+NOTE: Running task 6456 of 6466 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta-robot/recipes-core/images/rumba-complete-image.bb:do_image_qa)
+NOTE: recipe rumba-complete-image-1.0-r0: task do_image_qa: Started
+NOTE: recipe rumba-complete-image-1.0-r0: task do_image_qa: Succeeded
+NOTE: Running task 6457 of 6466 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta-robot/recipes-core/images/rumba-complete-image.bb:do_image)
+NOTE: recipe rumba-complete-image-1.0-r0: task do_image: Started
+NOTE: recipe rumba-complete-image-1.0-r0: task do_image: Succeeded
+NOTE: Running task 6458 of 6466 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta-robot/recipes-core/images/rumba-complete-image.bb:do_image_tar)
+NOTE: Running task 6459 of 6466 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta-robot/recipes-core/images/rumba-complete-image.bb:do_image_ext3)
+NOTE: recipe rumba-complete-image-1.0-r0: task do_image_tar: Started
+NOTE: recipe rumba-complete-image-1.0-r0: task do_image_ext3: Started
+NOTE: recipe rumba-complete-image-1.0-r0: task do_image_ext3: Succeeded
+NOTE: Running task 6460 of 6466 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta-robot/recipes-core/images/rumba-complete-image.bb:do_rootfs_wicenv)
+NOTE: recipe rumba-complete-image-1.0-r0: task do_rootfs_wicenv: Started
+NOTE: recipe rumba-complete-image-1.0-r0: task do_rootfs_wicenv: Succeeded
+NOTE: Running task 6461 of 6466 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta-robot/recipes-core/images/rumba-complete-image.bb:do_image_wic)
+NOTE: recipe rumba-complete-image-1.0-r0: task do_image_wic: Started
+NOTE: recipe rumba-complete-image-1.0-r0: task do_image_tar: Succeeded
+NOTE: recipe rumba-complete-image-1.0-r0: task do_image_wic: Succeeded
+NOTE: Running task 6462 of 6466 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta-robot/recipes-core/images/rumba-complete-image.bb:do_image_complete)
+NOTE: recipe rumba-complete-image-1.0-r0: task do_image_complete: Started
+NOTE: recipe rumba-complete-image-1.0-r0: task do_image_complete: Succeeded
+NOTE: Running task 6463 of 6466 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta-robot/recipes-core/images/rumba-complete-image.bb:do_populate_lic_deploy)
+NOTE: recipe rumba-complete-image-1.0-r0: task do_populate_lic_deploy: Started
+NOTE: recipe rumba-complete-image-1.0-r0: task do_populate_lic_deploy: Succeeded
+NOTE: Running task 6464 of 6466 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta-robot/recipes-core/images/rumba-complete-image.bb:do_rm_work)
+NOTE: recipe rumba-complete-image-1.0-r0: task do_rm_work: Started
+NOTE: recipe rumba-complete-image-1.0-r0: task do_rm_work: Succeeded
+NOTE: Running noexec task 6465 of 6466 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta-robot/recipes-core/images/rumba-complete-image.bb:do_rm_work_all)
+NOTE: Running noexec task 6466 of 6466 (/home/mano-006/proyectos/Empotrados/poky-scarthgap-5.0.19/meta-robot/recipes-core/images/rumba-complete-image.bb:do_build)
+NOTE: Tasks Summary: Attempted 6466 tasks of which 6408 didn't need to be rerun and all succeeded.
